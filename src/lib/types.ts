@@ -1,4 +1,4 @@
-// Kenzly GeoOps — TypeScript types matching casfa_core_schema.sql
+// Kenzly CASFA — TypeScript types matching casfa_core_schema.sql
 // Internal names: snake_case, no accents (mirrors DB canonical names)
 
 export type TipoCultivo = 'cafe' | 'tropical' | 'mixto'

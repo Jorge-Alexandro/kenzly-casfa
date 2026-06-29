@@ -7,7 +7,7 @@
 @tailwind utilities;
 
 :root {
-  --kenzly-orange: #f97316;
+  --kenzly-orange: #f8921d; /* naranja CASFASA (logo) */
 }
 
 /* Full-height app shell — the map fills the viewport. */

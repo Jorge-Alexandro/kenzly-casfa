@@ -37,13 +37,10 @@ export default function AppHeader({
     <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-orange-500 font-bold text-white">
-            K
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/casfasa.png" alt="CASFASA" className="h-8 w-auto" />
           <div className="leading-tight">
-            <p className="text-sm font-semibold text-slate-800">
-              Kenzly GeoOps
-            </p>
+            <p className="text-sm font-semibold text-slate-800">Kenzly CASFA</p>
             <p className="text-xs text-slate-500">{orgNombre}</p>
           </div>
         </div>

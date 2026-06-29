@@ -50,15 +50,14 @@ function LoginForm() {
         onSubmit={submit}
         className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm"
       >
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 text-lg font-bold text-white">
-            K
-          </div>
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/casfa.png" alt="CASFA — Red Maya de Organizaciones Orgánicas" className="h-20 w-auto" />
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">
-              Kenzly GeoOps
-            </h1>
-            <p className="text-xs text-slate-500">Acceso a GeoSIC</p>
+            <h1 className="text-lg font-semibold text-slate-800">Kenzly CASFA</h1>
+            <p className="text-xs text-slate-500">
+              Trazabilidad agroecológica · Red Maya de Organizaciones Orgánicas
+            </p>
           </div>
         </div>
 

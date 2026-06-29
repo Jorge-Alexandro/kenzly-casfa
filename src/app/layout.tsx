@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Kenzly GeoOps',
-  description: 'Trazabilidad geográfica de parcelas y certificación agroecológica',
+  title: 'Kenzly CASFA',
+  description: 'Trazabilidad agroecológica y certificación orgánica — CASFA / Red Maya de Organizaciones Orgánicas',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'GeoOps',
+    title: 'Kenzly CASFA',
   },
   other: {
     'mobile-web-app-capable': 'yes',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#f97316',
+  themeColor: '#F8921D',
   width: 'device-width',
   initialScale: 1,
 }
