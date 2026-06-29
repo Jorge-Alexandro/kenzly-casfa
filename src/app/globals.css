@@ -1,0 +1,75 @@
+/* Mapbox GL styles must load globally; the in-component import was not being
+   applied reliably (the canvas fell back to its 150px intrinsic height). */
+@import 'mapbox-gl/dist/mapbox-gl.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --kenzly-orange: #f97316;
+}
+
+/* Full-height app shell — the map fills the viewport. */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: #0f172a;
+  background: #f8fafc;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Hide the Mapbox wordmark (paid plan). Remove if on the free tier. */
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* --- Print: turn the ficha detail into a clean PDF (browser "Save as PDF") --- */
+@media print {
+  /* Hide app chrome (header, toolbar). */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Let the document flow across pages instead of the fixed app shell.
+     The app uses a full-screen flex shell (h-screen + overflow-hidden) that
+     would clip the report — neutralize those utilities while printing. */
+  html,
+  body {
+    height: auto;
+    background: #ffffff;
+  }
+  .h-screen,
+  .overflow-hidden,
+  .overflow-auto,
+  .min-h-0 {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Neutralize the full-screen flex shell so content isn't clipped. */
+  .print-sheet {
+    margin: 0 !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Avoid splitting a section across a page break when possible. */
+  .report-section {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}

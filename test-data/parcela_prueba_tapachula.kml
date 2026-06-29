@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Parcela de prueba CASFA</name>
+    <Placemark>
+      <name>Poligono Prueba Tapachula</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              -92.260740,14.899285,0
+              -92.259260,14.899285,0
+              -92.259260,14.900715,0
+              -92.260740,14.900715,0
+              -92.260740,14.899285,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>
