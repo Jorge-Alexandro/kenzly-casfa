@@ -176,6 +176,30 @@ export type CampoTipo =
   | 'date'
   | 'signature'
   | 'bool'
+  | 'tabla' // filas repetibles (ver config.columnas)
+
+// Columna de un campo tipo 'tabla'.
+export interface CampoColumna {
+  id: string
+  label: string
+  tipo: 'text' | 'number' | 'calc'
+  // para tipo 'calc': fórmula con ids de columnas, p.ej. '10000/(marco_a*marco_b)'
+  formula?: string
+}
+
+// Configuración extendida por campo (condicionales, tablas, autollenado).
+export interface CampoConfig {
+  // El campo solo se muestra si otro campo tiene este valor.
+  condicion?: { campo: string; igual: string }
+  // Columnas para tipo 'tabla'.
+  columnas?: CampoColumna[]
+  // El valor se jala de la parcela seleccionada.
+  autofill?: 'produccion_anterior' | 'produccion_actual' | 'superficie_cafe'
+  // enum que al elegir "Otro" muestra texto libre.
+  opcion_otro?: boolean
+  // enum de selección múltiple (checkboxes); el valor es un arreglo de opciones.
+  multiple?: boolean
+}
 
 export interface FormCampo {
   id: string
@@ -186,6 +210,7 @@ export interface FormCampo {
   requerido: boolean
   orden: number
   imagen_referencia_url: string | null
+  config: CampoConfig
 }
 
 export interface FormSeccion {
@@ -219,6 +244,9 @@ export interface ParcelaLite {
   nombre: string | null
   tipo_cultivo: TipoCultivo
   superficie_declarada_ha: number | null
+  // Datos de café para autollenado de producción (#3) — null en tropicales.
+  cafe_superficie_ha: number | null
+  cafe_produccion_qq: number | null
 }
 
 // A saved ficha row (list view)
@@ -244,7 +272,7 @@ export interface FichaDetalle {
     area_cultivada_ha: number | null
     resultado_evaluacion: string | null
     created_at: string
-    respuestas: Record<string, string | number | null>
+    respuestas: Record<string, unknown>
   }
   productor: {
     nombre_completo: string

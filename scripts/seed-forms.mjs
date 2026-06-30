@@ -23,13 +23,37 @@ const SINO = ['Sí', 'No'] // columnas SI/NO de la ficha técnica real
 const CUMPLE = ['Sí', 'Parcialmente', 'No'] // resumen de cumplimiento por sección
 const RESULTADO = ['Aprobado', 'Aprobado con Condiciones', 'Sancionado']
 
-// Helper: define un campo. tipo: enum|text|longtext|number|date|signature
-const f = (nombre_interno, etiqueta, tipo = 'enum', opciones = SINO) => ({
+// Columnas de tablas (filas repetibles) pedidas por el SIC.
+// Densidad de siembra = 10000 / (marco A × marco B) — marco de plantación.
+const VARIEDADES_COLS = [
+  { id: 'variedad', label: 'Variedad', tipo: 'text' },
+  { id: 'marco_a', label: 'Marco A (m)', tipo: 'number' },
+  { id: 'marco_b', label: 'Marco B (m)', tipo: 'number' },
+  { id: 'densidad_siembra', label: 'Densidad de siembra (plantas/ha)', tipo: 'calc', formula: '10000/(marco_a*marco_b)' },
+]
+const DIVERSIDAD_COLS = [
+  { id: 'especie', label: 'Especie', tipo: 'text' },
+  { id: 'cantidad', label: 'Cantidad aprox.', tipo: 'number' },
+  { id: 'altura_m', label: 'Altura (m)', tipo: 'number' },
+]
+const VIVERO_COLS = [
+  { id: 'variedad', label: 'Variedad', tipo: 'text' },
+  { id: 'cantidad', label: 'Cantidad de plantas', tipo: 'number' },
+]
+
+// Helper: define un campo. tipo: enum|text|longtext|number|date|signature|tabla
+// config (opcional): { condicion, columnas, autofill, opcion_otro }
+const f = (nombre_interno, etiqueta, tipo = 'enum', opciones = SINO, config = {}) => ({
   nombre_interno,
   etiqueta,
   tipo,
   opciones: tipo === 'enum' ? opciones : null,
+  config,
 })
+
+// Helpers para legibilidad de los nuevos requisitos del SIC:
+const mostrarSi = (campo, igual = 'Sí') => ({ condicion: { campo, igual } })
+const enumOtro = ['Otro'] // se concatena a las opciones; activa opcion_otro
 
 // ----------------------------------------------------------------------------
 // FICHA ROBUSTA
@@ -42,10 +66,9 @@ const ROBUSTA = {
     {
       nombre: '2. Información de la parcela',
       campos: [
-        f('variedad', 'Variedad', 'text'),
-        f('densidad_siembra', 'Densidad de siembra', 'text'),
-        f('produccion_anterior', 'Producción anterior cosechada', 'text'),
-        f('produccion_actual', 'Producción actual', 'text'),
+        f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
+        f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior' }),
+        f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
       ],
     },
@@ -66,11 +89,12 @@ const ROBUSTA = {
           'renovacion',
           'Renovación de cafetos y sombra: ¿el productor mantiene su cafetal en condiciones de producción aceptables replantando/reponiendo sistemáticamente cafetos viejos e improductivos?',
         ),
-        f('resiembra', 'Resiembra: cafetos sembrados este año', 'text'),
+        f('resiembra', 'Resiembra: cafetos sembrados este año', 'number', null, mostrarSi('renovacion')),
         f(
           'inga',
           '¿Se siembran árboles o leguminosa (Inga) a lo largo de las plantaciones de café de modo que contribuyen a la fertilidad del suelo, a la protección contra la erosión, u otras funciones afines?',
         ),
+        f('resiembra_sombra', 'Resiembra de sombra: árboles sembrados este año', 'number', null, mostrarSi('inga')),
         f(
           'manejo_cafetal',
           'Manejo: ¿el productor mantiene su cafetal en condiciones de producción aceptables realizando prácticas de manejo?',
@@ -94,9 +118,9 @@ const ROBUSTA = {
           'Corte selectivo de árboles',
           'Reforestación con spp nativas',
           'Introducción de spp exóticas',
-        ]),
-        f('diversidad_especies', 'Diversidad de especies y cantidad aproximada (altura mts)', 'text'),
-        f('tipo_sombra', 'Tipo de sombra', 'text'),
+        ], { multiple: true }),
+        f('diversidad_especies', 'Diversidad de especies y cantidad aproximada', 'tabla', null, { columnas: DIVERSIDAD_COLS }),
+        f('tipo_sombra', 'Tipo de sombra (gradiente A/B/C/D)', 'enum', ['A', 'B', 'C', 'D'], { multiple: true }),
         f(
           'cumple_sombra',
           'El manejo de sombra y los recursos hídricos cumplen con las normas internas de CASFA',
@@ -136,7 +160,7 @@ const ROBUSTA = {
           '¿El productor toma medidas de conservación de suelos como corte de hierba alto, terrazas individuales, barreras físicas o barreras vivas establecidas a lo largo de las líneas de contorno a intervalos adecuados para las condiciones del sitio?',
         ),
         f('abono_organico', '¿El productor elabora abono orgánico?'),
-        f('materiales', 'Describa los materiales empleados en su elaboración.', 'text'),
+        f('materiales', 'Describa los materiales empleados en su elaboración.', 'text', null, mostrarSi('abono_organico')),
         f('estiercol', '¿El productor usa estiércol animal?'),
         f(
           'desecho',
@@ -167,14 +191,15 @@ const ROBUSTA = {
           '¿Encontró evidencias de uso de insumos químicos (herbicidas, insecticidas, fungicidas) para el control de hierbas, enfermedades, insectos o plagas en el cafetal (p.ej. aplicación de químicos contra broca u hormigas)?',
         ),
         f('prob_severo', '¿Hay algún problema severo de ataque de plagas o enfermedades?'),
-        f('tipo_plagas', 'Tipo de plagas', 'enum', ['Roya', 'Broca', 'Otro']),
-        f('control_plagas', 'Métodos de combate', 'enum', ['Cultural', 'Químico']),
+        f('tipo_plagas', 'Tipo de plagas', 'enum', ['Roya', 'Broca', ...enumOtro], { multiple: true, opcion_otro: true }),
+        f('control_plagas', 'Métodos de combate', 'enum', ['Cultural', 'Químico'], { multiple: true }),
       ],
     },
     {
       nombre: '8. Riesgos de contaminación',
       campos: [
         f('contaminacion_riesgo', '¿Existe riesgo de contaminación por cultivos colindantes?'),
+        f('sobre_que_almacena', '¿Sobre qué almacena sus sacos de café?', 'enum', ['Tarimas', 'Costales', ...enumOtro], { opcion_otro: true, multiple: true }),
         f(
           'areas_amortiguamento',
           'Existen áreas de amortiguamiento que evitan contaminación por parcelas convencionales vecinas.',
@@ -203,20 +228,21 @@ const ROBUSTA = {
       nombre: '10. Beneficio húmedo',
       campos: [
         f('equipo_beneficio', '¿El productor cuenta con equipo de beneficio húmedo?'),
-        f('donde', '¿Dónde beneficia su café?', 'enum', ['Casa', 'Parcela', 'Otro']),
+        f('donde', '¿Dónde beneficia su café?', 'enum', ['Casa', 'Parcela', ...enumOtro], { multiple: true, opcion_otro: true }),
         f(
           'higiene',
           '¿El beneficio húmedo cuenta con las medidas de higiene adecuadas? (despulpadoras, patios, fermentadora)',
         ),
-        f(
-          'acceso_animal',
-          '¿El productor evita el acceso de animales y vehículos a las zonas de beneficio, secado y almacenamiento para evitar contaminación del producto?',
-        ),
+        f('donde_seca', '¿Dónde seca su café?', 'enum', ['Patio de concreto', 'Malla de sombra', 'Costales', ...enumOtro], { opcion_otro: true, multiple: true }),
         f('fuente_agua', 'Fuente de agua limpia para uso en el despulpado, lavado y fermentación del café.', 'enum', [
           'Manantial',
           'Arroyo',
           'Toma doméstica',
-        ]),
+        ], { multiple: true }),
+        f(
+          'acceso_animal',
+          '¿El productor evita el acceso de animales y vehículos a las zonas de beneficio, secado y almacenamiento para evitar contaminación del producto?',
+        ),
         f(
           'fosa_infiltracion',
           '¿El productor cuenta con una fosa de infiltración para evitar contaminación de fuentes de agua por residuos de cosecha y agua residual de uso en beneficio húmedo?',
@@ -236,11 +262,13 @@ const ROBUSTA = {
           'El productor se asegura que el sitio donde se guarda el producto sea un lugar separado, seco y mantenga condiciones de limpieza adecuada.',
         ),
         f('insumos_almacen', '¿Existe presencia de insumos químicos en el almacén doméstico del productor?'),
+        f('plagas_almacen', '¿Existen plagas en el lugar de almacenamiento?'),
+        f('combate_plagas_almacen', '¿Cómo se combaten las plagas?', 'text', null, mostrarSi('plagas_almacen')),
         f('transporte', '¿Cómo se transporta el café desde la casa del productor hacia el Centro de Acopio?', 'enum', [
           'Carro de la empresa',
           'Transporte individual',
           'Otro medio',
-        ]),
+        ], { multiple: true }),
         f('riesgo_transporte', '¿Existe riesgo de mezcla o contaminación durante el transporte?'),
       ],
     },
@@ -256,8 +284,10 @@ const ROBUSTA = {
       campos: [
         f('hallazgos', 'Hallazgos', 'longtext'),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
+        f('fecha_revision', 'Fecha de revisión', 'date'),
         f('firma_productor', 'Firma del productor', 'signature'),
         f('firma_inspector', 'Firma del inspector', 'signature'),
+        f('firma_comite', 'Firma del comité de aprobación', 'signature'),
       ],
     },
   ],
@@ -275,9 +305,9 @@ const ARABE = {
       nombre: '2. Información de la parcela',
       campos: [
         f('estatus_parcela', 'Estatus de la parcela', 'text'),
-        f('variedad', 'Variedad', 'text'),
-        f('produccion_anterior_kg', 'Producción anterior cosechada (kg)', 'number'),
-        f('produccion_actual_kg', 'Producción actual (kg)', 'number'),
+        f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
+        f('produccion_anterior_kg', 'Producción anterior cosechada (kg)', 'number', null, { autofill: 'produccion_anterior' }),
+        f('produccion_actual_kg', 'Producción actual (kg)', 'number', null, { autofill: 'produccion_actual' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
       ],
     },
@@ -285,7 +315,7 @@ const ARABE = {
       nombre: '3. Producción de plantas y renovación de café',
       campos: [
         f('tiene_vivero', '¿Cuenta con vivero de café?'),
-        f('variedad_vivero', 'Variedad del vivero', 'text'),
+        f('variedad_vivero', 'Variedades del vivero', 'tabla', null, { columnas: VIVERO_COLS, condicion: { campo: 'tiene_vivero', igual: 'Sí' } }),
         f(
           'semillas_misma_parcela',
           '¿Las semillas y plántulas de café y árboles de sombra se obtienen en el mismo cafetal?',
@@ -299,11 +329,12 @@ const ARABE = {
           'renovacion',
           'Renovación de cafetos y sombra: ¿el productor mantiene su cafetal en condiciones de producción aceptables replantando/reponiendo sistemáticamente cafetos viejos e improductivos?',
         ),
-        f('resiembra_anio', 'Resiembra: cafetos sembrados este año', 'text'),
+        f('resiembra_anio', 'Resiembra: cafetos sembrados este año', 'number', null, mostrarSi('renovacion')),
         f(
           'leguminosas_arboles_suelo',
           '¿Se siembran árboles o leguminosa (Inga) a lo largo de las plantaciones de café de modo que contribuyen a la fertilidad del suelo, a la protección contra la erosión, u otras funciones afines?',
         ),
+        f('resiembra_sombra', 'Resiembra de sombra: árboles sembrados este año', 'number', null, mostrarSi('leguminosas_arboles_suelo')),
         f(
           'manejo_cafetal',
           'Manejo: ¿el productor mantiene su cafetal en condiciones de producción aceptables realizando prácticas de manejo?',
@@ -323,8 +354,13 @@ const ARABE = {
         f('especie_sombra_dominante', 'Especie de sombra dominante', 'text'),
         f('altura_dosel_m', 'Altura del dosel principal (mts)', 'number'),
         f('estratos', 'Número de estratos', 'enum', ['Uno', 'Dos', 'Tres']),
-        f('manejo_sombra', 'Manejo de la sombra', 'text'),
-        f('diversidad_especies', 'Diversidad de especies y cantidad aproximada', 'text'),
+        f('manejo_sombra', 'Manejo de la sombra', 'enum', [
+          'Poda de árboles',
+          'Corte selectivo de árboles',
+          'Reforestación con spp nativas',
+          'Introducción de spp exóticas',
+        ], { multiple: true }),
+        f('diversidad_especies', 'Diversidad de especies y cantidad aproximada', 'tabla', null, { columnas: DIVERSIDAD_COLS }),
         f(
           'cumple_sombra',
           'El manejo de sombra y los recursos hídricos cumplen con las normas internas de CASFA',
@@ -393,14 +429,15 @@ const ARABE = {
           '¿Encontró evidencias de uso de insumos químicos (herbicidas, insecticidas, fungicidas) para el control de hierbas, enfermedades, insectos o plagas en el cafetal (p.ej. aplicación de químicos contra broca u hormigas)?',
         ),
         f('problema_severo_plagas', '¿Hay algún problema severo de ataque de plagas o enfermedades?'),
-        f('tipos_plaga', 'Tipo de plagas', 'enum', ['Roya', 'Broca', 'Otro']),
-        f('metodo_combate', 'Métodos de combate', 'enum', ['Cultural', 'Químico']),
+        f('tipos_plaga', 'Tipo de plagas', 'enum', ['Roya', 'Broca', ...enumOtro], { multiple: true, opcion_otro: true }),
+        f('metodo_combate', 'Métodos de combate', 'enum', ['Cultural', 'Químico'], { multiple: true }),
       ],
     },
     {
       nombre: '8. Riesgos de contaminación',
       campos: [
         f('riesgo_cultivos_colindantes', '¿Existe riesgo de contaminación por cultivos colindantes?'),
+        f('sobre_que_almacena', '¿Sobre qué almacena sus sacos de café?', 'enum', ['Tarimas', 'Costales', ...enumOtro], { opcion_otro: true, multiple: true }),
         f(
           'areas_amortiguamiento',
           'Existen áreas de amortiguamiento que evitan contaminación por parcelas convencionales vecinas.',
@@ -430,20 +467,21 @@ const ARABE = {
       nombre: '10. Beneficio húmedo',
       campos: [
         f('equipo_beneficio_humedo', '¿El productor cuenta con equipo de beneficio húmedo?'),
-        f('sitio_beneficio', '¿Dónde beneficia su café?', 'enum', ['Casa', 'Parcela', 'Otro']),
+        f('sitio_beneficio', '¿Dónde beneficia su café?', 'enum', ['Casa', 'Parcela', ...enumOtro], { multiple: true, opcion_otro: true }),
         f(
           'higiene_beneficio',
           '¿El beneficio húmedo cuenta con las medidas de higiene adecuadas? (despulpadoras, patios, fermentadora)',
         ),
-        f(
-          'control_acceso_animales',
-          '¿El productor evita el acceso de animales y vehículos a las zonas de beneficio, secado y almacenamiento para evitar contaminación del producto?',
-        ),
+        f('donde_seca', '¿Dónde seca su café?', 'enum', ['Patio de concreto', 'Malla de sombra', 'Costales', ...enumOtro], { opcion_otro: true, multiple: true }),
         f('fuente_agua', 'Fuente de agua limpia para uso en el despulpado, lavado y fermentación del café.', 'enum', [
           'Manantial',
           'Arroyo',
           'Toma doméstica',
-        ]),
+        ], { multiple: true }),
+        f(
+          'control_acceso_animales',
+          '¿El productor evita el acceso de animales y vehículos a las zonas de beneficio, secado y almacenamiento para evitar contaminación del producto?',
+        ),
         f(
           'fosa_infiltracion',
           '¿El productor cuenta con una fosa de infiltración para evitar contaminación de fuentes de agua por residuos de cosecha y agua residual de uso en beneficio húmedo?',
@@ -463,11 +501,13 @@ const ARABE = {
           'El productor se asegura que el sitio donde se guarda el producto sea un lugar separado, seco y mantenga condiciones de limpieza adecuada.',
         ),
         f('insumos_quimicos_almacen', '¿Existe presencia de insumos químicos en el almacén doméstico del productor?'),
+        f('plagas_almacen', '¿Existen plagas en el lugar de almacenamiento?'),
+        f('combate_plagas_almacen', '¿Cómo se combaten las plagas?', 'text', null, mostrarSi('plagas_almacen')),
         f('transporte_centro_acopio', '¿Cómo se transporta el café desde la casa del productor hacia el Centro de Acopio?', 'enum', [
           'Carro de la empresa',
           'Transporte individual',
           'Otro medio',
-        ]),
+        ], { multiple: true }),
         f('riesgo_mezcla_transporte', '¿Existe riesgo de mezcla o contaminación durante el transporte?'),
       ],
     },
@@ -491,6 +531,7 @@ const ARABE = {
         f('fecha_revision', 'Fecha de revisión', 'date'),
         f('firma_productor', 'Firma del productor', 'signature'),
         f('firma_inspector', 'Firma del inspector', 'signature'),
+        f('firma_comite', 'Firma del comité de aprobación', 'signature'),
       ],
     },
   ],
@@ -657,6 +698,7 @@ const TROPICALES = {
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
         f('firma_productor', 'Firma del productor', 'signature'),
         f('firma_inspector', 'Firma del inspector', 'signature'),
+        f('firma_comite', 'Firma del comité de aprobación', 'signature'),
       ],
     },
   ],
@@ -723,6 +765,7 @@ async function seed() {
         opciones: c.opciones,
         requerido: false,
         orden: i,
+        config: c.config ?? {},
       }))
       const { error: cErr } = await admin.from('form_campos').insert(campos)
       if (cErr) throw cErr

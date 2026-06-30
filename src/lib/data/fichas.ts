@@ -17,7 +17,7 @@ export async function getFormTemplates(): Promise<FormTemplate[]> {
     .select(
       `id, tipo_cultivo, nombre, version,
        form_secciones ( id, nombre, orden,
-         form_campos ( id, nombre_interno, etiqueta, tipo, opciones, requerido, orden, imagen_referencia_url )
+         form_campos ( id, nombre_interno, etiqueta, tipo, opciones, requerido, orden, imagen_referencia_url, config )
        )`,
     )
     .eq('activo', true)
@@ -47,6 +47,7 @@ export async function getFormTemplates(): Promise<FormTemplate[]> {
                 requerido: c.requerido,
                 orden: c.orden,
                 imagen_referencia_url: c.imagen_referencia_url ?? null,
+                config: (c.config ?? {}) as FormCampo['config'],
               }),
             )
             .sort((a, b) => a.orden - b.orden),
@@ -72,11 +73,30 @@ export async function getParcelasLite(): Promise<ParcelaLite[]> {
   const { data, error } = await supabase
     .from('parcelas')
     .select(
-      'id, productor_id, codigo_parcela, nombre, tipo_cultivo, superficie_declarada_ha',
+      `id, productor_id, codigo_parcela, nombre, tipo_cultivo, superficie_declarada_ha,
+       parcela_cafe ( superficie_arabica_ha, superficie_robusta_ha, robusta_produccion_qq, arabe_produccion_qq )`,
     )
     .order('codigo_parcela')
   if (error) throw new Error(`getParcelasLite: ${error.message}`)
-  return (data ?? []) as ParcelaLite[]
+
+  return (data ?? []).map((p) => {
+    const cafe = Array.isArray(p.parcela_cafe) ? p.parcela_cafe[0] : p.parcela_cafe
+    const supCafe =
+      (Number(cafe?.superficie_arabica_ha) || 0) +
+      (Number(cafe?.superficie_robusta_ha) || 0)
+    const prod =
+      cafe?.robusta_produccion_qq ?? cafe?.arabe_produccion_qq ?? null
+    return {
+      id: p.id,
+      productor_id: p.productor_id,
+      codigo_parcela: p.codigo_parcela,
+      nombre: p.nombre,
+      tipo_cultivo: p.tipo_cultivo,
+      superficie_declarada_ha: p.superficie_declarada_ha,
+      cafe_superficie_ha: supCafe > 0 ? supCafe : null,
+      cafe_produccion_qq: prod,
+    }
+  })
 }
 
 // Full ficha detail for the view/print page.

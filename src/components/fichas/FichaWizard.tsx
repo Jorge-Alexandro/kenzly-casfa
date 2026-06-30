@@ -6,7 +6,7 @@
 //   3. Parcelas del productor (multi-select + suma de superficie)
 //   4. Formulario dinamico (secciones/campos del template)
 // Saves via POST /api/fichas.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type {
   FormTemplate,
@@ -14,6 +14,7 @@ import type {
   ParcelaLite,
   TipoFicha,
   FormCampo,
+  CampoColumna,
 } from '@/lib/types'
 import {
   TIPO_FICHA_LABEL,
@@ -23,7 +24,9 @@ import SignaturePad from './SignaturePad'
 import { codigoCorto } from '@/lib/format'
 import { enviarOEncolar } from '@/lib/offline/sync'
 
-type Respuestas = Record<string, string | number | null>
+// Las respuestas pueden ser escalares o filas de tabla (variedades, etc.).
+type FilaTabla = Record<string, string | number | null>
+type Respuestas = Record<string, unknown>
 
 export default function FichaWizard({
   templates,
@@ -81,17 +84,43 @@ export default function FichaWizard({
     [productorId, parcelas],
   )
 
-  const areaTotal = useMemo(
-    () =>
-      parcelasProductor
-        .filter((p) => parcelaIds.includes(p.id))
-        .reduce((s, p) => s + (Number(p.superficie_declarada_ha) || 0), 0),
+  // Parcelas seleccionadas (para mostrar área por parcela y autollenar producción).
+  const parcelasSeleccionadas = useMemo(
+    () => parcelasProductor.filter((p) => parcelaIds.includes(p.id)),
     [parcelasProductor, parcelaIds],
   )
 
+  // Valores que se "jalan de la BD" (#3): producción/superficie de las parcelas.
+  const autofillValores = useMemo(() => {
+    const sum = (sel: (p: ParcelaLite) => number | null) =>
+      parcelasSeleccionadas.reduce((s, p) => s + (Number(sel(p)) || 0), 0)
+    const prod = sum((p) => p.cafe_produccion_qq)
+    return {
+      produccion_anterior: prod || null,
+      produccion_actual: prod || null,
+      superficie_cafe: sum((p) => p.cafe_superficie_ha) || null,
+    }
+  }, [parcelasSeleccionadas])
+
+  // Al cambiar las parcelas, prellenar los campos con autofill desde la BD.
+  useEffect(() => {
+    if (!template) return
+    setRespuestas((r) => {
+      const next = { ...r }
+      for (const sec of template.secciones) {
+        for (const c of sec.campos) {
+          const key = c.config?.autofill
+          if (key) next[c.nombre_interno] = autofillValores[key]
+        }
+      }
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autofillValores, template])
+
   const productor = productores.find((p) => p.id === productorId)
 
-  function setCampo(nombre: string, value: string | number | null) {
+  function setCampo(nombre: string, value: unknown) {
     setRespuestas((r) => ({ ...r, [nombre]: value }))
   }
 
@@ -249,10 +278,9 @@ export default function FichaWizard({
             </div>
           )}
 
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <span className="text-slate-500">
-              {parcelaIds.length} parcela(s) · {areaTotal.toFixed(2)} ha
-            </span>
+          <div className="mt-3 text-sm text-slate-500">
+            {parcelaIds.length} parcela(s) seleccionada(s) — el área se registra
+            por parcela (no se suma).
           </div>
 
           <NavButtons
@@ -279,14 +307,20 @@ export default function FichaWizard({
           {template.secciones.map((sec) => (
             <Card key={sec.id} title={sec.nombre}>
               <div className="space-y-4">
-                {sec.campos.map((campo) => (
-                  <DynamicField
-                    key={campo.id}
-                    campo={campo}
-                    value={respuestas[campo.nombre_interno] ?? null}
-                    onChange={(v) => setCampo(campo.nombre_interno, v)}
-                  />
-                ))}
+                {sec.campos
+                  // #6 Visibilidad condicional: ocultar si la condición no se cumple.
+                  .filter((campo) => {
+                    const c = campo.config?.condicion
+                    return !c || respuestas[c.campo] === c.igual
+                  })
+                  .map((campo) => (
+                    <DynamicField
+                      key={campo.id}
+                      campo={campo}
+                      value={respuestas[campo.nombre_interno] ?? null}
+                      onChange={(v) => setCampo(campo.nombre_interno, v)}
+                    />
+                  ))}
               </div>
             </Card>
           ))}
@@ -340,20 +374,21 @@ function DynamicField({
   onChange,
 }: {
   campo: FormCampo
-  value: string | number | null
-  onChange: (v: string | number | null) => void
+  value: unknown
+  onChange: (v: unknown) => void
 }) {
-  // Short answers (enum/number/date) use a capped width; free text fills it.
   const short = campo.tipo === 'enum' || campo.tipo === 'number' || campo.tipo === 'date'
   const base = `${short ? 'w-full max-w-xs' : 'w-full'} rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400`
+  const str = (value as string) ?? ''
+  const esAutofill = !!campo.config?.autofill
 
   return (
     <div>
       <label className="mb-1 block text-sm font-medium text-slate-700">
         {campo.etiqueta}
+        {esAutofill && <span className="ml-1 text-xs font-normal text-slate-400">(de la BD)</span>}
       </label>
       {campo.imagen_referencia_url && (
-        // Reference image (fixed guide), shown above the input.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={campo.imagen_referencia_url}
@@ -361,59 +396,276 @@ function DynamicField({
           className="mb-2 max-h-56 w-full rounded-md border border-slate-200 object-contain"
         />
       )}
-      {campo.tipo === 'enum' && (
-        <select
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          className={base}
-        >
-          <option value="">—</option>
-          {(campo.opciones ?? []).map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      )}
-      {campo.tipo === 'text' && (
-        <input
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          className={base}
+
+      {campo.tipo === 'tabla' && (
+        <TablaField
+          columnas={campo.config?.columnas ?? []}
+          value={Array.isArray(value) ? (value as FilaTabla[]) : []}
+          onChange={onChange}
         />
+      )}
+
+      {campo.tipo === 'enum' &&
+        (campo.config?.multiple ? (
+          <MultiEnum
+            opciones={campo.opciones ?? []}
+            value={Array.isArray(value) ? (value as string[]) : []}
+            onChange={onChange}
+            opcionOtro={!!campo.config?.opcion_otro}
+          />
+        ) : campo.config?.opcion_otro ? (
+          <EnumOtro opciones={campo.opciones ?? []} value={str} onChange={onChange} cls={base} />
+        ) : (
+          <select value={str} onChange={(e) => onChange(e.target.value || null)} className={base}>
+            <option value="">—</option>
+            {(campo.opciones ?? []).map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        ))}
+
+      {campo.tipo === 'text' && (
+        <input value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
       )}
       {campo.tipo === 'longtext' && (
-        <textarea
-          rows={2}
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          className={base}
-        />
+        <textarea rows={2} value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
       )}
       {campo.tipo === 'number' && (
         <input
           type="number"
-          value={value === null ? '' : (value as number)}
+          value={value === null || value === undefined ? '' : (value as number)}
           onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
           className={base}
         />
       )}
       {campo.tipo === 'date' && (
-        <input
-          type="date"
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          className={base}
-        />
+        <input type="date" value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
       )}
       {campo.tipo === 'signature' && (
-        <SignaturePad
-          value={(value as string) ?? null}
-          onChange={(v) => onChange(v)}
+        <SignaturePad value={str || null} onChange={(v) => onChange(v)} />
+      )}
+    </div>
+  )
+}
+
+// Enum con opción "Otro": al elegir "Otro" se muestra un texto libre y el valor
+// guardado es "Otro: <texto>".
+function EnumOtro({
+  opciones,
+  value,
+  onChange,
+  cls,
+}: {
+  opciones: string[]
+  value: string
+  onChange: (v: unknown) => void
+  cls: string
+}) {
+  const esOtro = value.startsWith('Otro')
+  const otroTexto = esOtro ? value.replace(/^Otro:?\s*/, '') : ''
+  return (
+    <div className="space-y-2">
+      <select
+        value={esOtro ? 'Otro' : value}
+        onChange={(e) => onChange(e.target.value === 'Otro' ? 'Otro: ' : e.target.value || null)}
+        className={cls}
+      >
+        <option value="">—</option>
+        {opciones.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+      {esOtro && (
+        <input
+          value={otroTexto}
+          placeholder="Especifica…"
+          onChange={(e) => onChange('Otro: ' + e.target.value)}
+          className="w-full max-w-xs rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
         />
       )}
     </div>
   )
+}
+
+// Enum de selección múltiple (checkboxes). El valor es un arreglo de opciones;
+// si opcionOtro, la entrada "Otro" admite texto libre ("Otro: <texto>").
+function MultiEnum({
+  opciones,
+  value,
+  onChange,
+  opcionOtro,
+}: {
+  opciones: string[]
+  value: string[]
+  onChange: (v: unknown) => void
+  opcionOtro: boolean
+}) {
+  const arr = value
+  const otroEntry = arr.find((v) => v.startsWith('Otro'))
+  const otroChecked = !!otroEntry
+
+  function toggle(op: string) {
+    if (op === 'Otro') {
+      onChange(otroChecked ? arr.filter((v) => !v.startsWith('Otro')) : [...arr, 'Otro: '])
+    } else {
+      onChange(arr.includes(op) ? arr.filter((v) => v !== op) : [...arr, op])
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      {opciones.map((op) => (
+        <label key={op} className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={op === 'Otro' ? otroChecked : arr.includes(op)}
+            onChange={() => toggle(op)}
+            className="h-4 w-4 accent-orange-500"
+          />
+          {op}
+        </label>
+      ))}
+      {opcionOtro && otroChecked && (
+        <input
+          value={(otroEntry ?? '').replace(/^Otro:?\s*/, '')}
+          placeholder="Especifica…"
+          onChange={(e) =>
+            onChange([...arr.filter((v) => !v.startsWith('Otro')), 'Otro: ' + e.target.value])
+          }
+          className="w-full max-w-xs rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+        />
+      )}
+    </div>
+  )
+}
+
+// Campo tipo tabla: filas repetibles con columnas (text/number/calc).
+function TablaField({
+  columnas,
+  value,
+  onChange,
+}: {
+  columnas: CampoColumna[]
+  value: FilaTabla[]
+  onChange: (v: unknown) => void
+}) {
+  const filas = value.length > 0 ? value : [{}]
+
+  function setCelda(i: number, colId: string, v: string | number | null) {
+    const next = filas.map((f, idx) => (idx === i ? { ...f, [colId]: v } : f))
+    onChange(recalcular(next, columnas))
+  }
+  function agregar() {
+    onChange([...filas, {}])
+  }
+  function quitar(i: number) {
+    const next = filas.filter((_, idx) => idx !== i)
+    onChange(next.length > 0 ? next : [{}])
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-slate-200">
+      <table className="w-full text-xs">
+        <thead className="bg-slate-50 text-left text-slate-500">
+          <tr>
+            {columnas.map((c) => (
+              <th key={c.id} className="p-1.5 font-medium">
+                {c.label}
+              </th>
+            ))}
+            <th className="w-8"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila, i) => (
+            <tr key={i} className="border-t border-slate-100">
+              {columnas.map((c) => (
+                <td key={c.id} className="p-1">
+                  {c.tipo === 'calc' ? (
+                    <span className="px-1 tabular-nums text-slate-700">
+                      {fila[c.id] !== undefined && fila[c.id] !== null
+                        ? Number(fila[c.id]).toFixed(2)
+                        : '—'}
+                    </span>
+                  ) : (
+                    <input
+                      type={c.tipo === 'number' ? 'number' : 'text'}
+                      value={(fila[c.id] as string | number) ?? ''}
+                      onChange={(e) =>
+                        setCelda(
+                          i,
+                          c.id,
+                          c.tipo === 'number'
+                            ? e.target.value === ''
+                              ? null
+                              : Number(e.target.value)
+                            : e.target.value || null,
+                        )
+                      }
+                      className="w-full min-w-[80px] rounded border border-slate-200 px-1.5 py-1 outline-none focus:border-orange-400"
+                    />
+                  )}
+                </td>
+              ))}
+              <td className="p-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => quitar(i)}
+                  className="text-slate-400 hover:text-red-600"
+                  title="Quitar fila"
+                >
+                  ✕
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button
+        type="button"
+        onClick={agregar}
+        className="m-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+      >
+        + Agregar fila
+      </button>
+    </div>
+  )
+}
+
+// Recalcula columnas 'calc' (p.ej. densidad = 10000/(marco_a*marco_b)).
+function recalcular(filas: FilaTabla[], columnas: CampoColumna[]): FilaTabla[] {
+  const calc = columnas.filter((c) => c.tipo === 'calc')
+  if (calc.length === 0) return filas
+  return filas.map((fila) => {
+    const out = { ...fila }
+    for (const c of calc) {
+      out[c.id] = evalFormula(c.formula ?? '', fila)
+    }
+    return out
+  })
+}
+
+// Evalúa una fórmula simple con ids de columnas (sin eval(): parser acotado).
+function evalFormula(formula: string, fila: FilaTabla): number | null {
+  if (!formula) return null
+  // Sustituye ids por valores numéricos.
+  const expr = formula.replace(/[a-z_][a-z0-9_]*/gi, (id) => {
+    const v = Number(fila[id])
+    return Number.isFinite(v) ? String(v) : 'NaN'
+  })
+  // Solo permitimos dígitos, operadores y paréntesis.
+  if (!/^[0-9+\-*/().\sNaN]+$/.test(expr)) return null
+  try {
+    // eslint-disable-next-line no-new-func
+    const r = Function(`"use strict";return (${expr})`)()
+    return Number.isFinite(r) ? Number(r) : null
+  } catch {
+    return null
+  }
 }
 
 // --- small layout helpers ---

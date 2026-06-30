@@ -202,9 +202,10 @@ export default function FichaReport({
               someterse a las indicaciones y condiciones establecidas por el
               Comité de Evaluación Interna y por las Agencias de Certificación.
             </p>
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-3 gap-6">
               <Firma titulo="Productor" data={r('firma_productor') as string | null} />
               <Firma titulo="Inspector interno" data={r('firma_inspector') as string | null} />
+              <Firma titulo="Comité de aprobación" data={r('firma_comite') as string | null} />
             </div>
           </>
         )}
@@ -275,46 +276,102 @@ function CriterioSection({
   respuesta,
 }: {
   seccion: FormSeccion
-  respuesta: (k: string) => string | number | null
+  respuesta: (k: string) => unknown
 }) {
   // Signatures never appear in criterio sections; the eval block handles them.
+  // Las tablas (variedades, diversidad) se muestran como bloques propios.
   const campos = seccion.campos.filter((c) => c.tipo !== 'signature')
   if (campos.length === 0) return null
+
+  const filaCampos = campos.filter((c) => c.tipo !== 'tabla')
+  const tablaCampos = campos.filter((c) => c.tipo === 'tabla')
 
   return (
     <div className="report-section mb-4">
       <SectionTitle>{seccion.nombre}</SectionTitle>
-      <table className="w-full border-collapse text-xs">
-        <tbody>
-          {campos.map((campo) => (
-            <CriterioRow
-              key={campo.id}
-              campo={campo}
-              value={respuesta(campo.nombre_interno)}
-            />
-          ))}
-        </tbody>
-      </table>
+      {tablaCampos.map((campo) => (
+        <TablaCriterio key={campo.id} campo={campo} value={respuesta(campo.nombre_interno)} />
+      ))}
+      {filaCampos.length > 0 && (
+        <table className="w-full border-collapse text-xs">
+          <tbody>
+            {filaCampos.map((campo) => (
+              <CriterioRow key={campo.id} campo={campo} value={respuesta(campo.nombre_interno)} />
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }
 
-function CriterioRow({
-  campo,
-  value,
-}: {
-  campo: FormCampo
-  value: string | number | null
-}) {
+// Muestra un valor de respuesta: arreglos (multi) unidos por coma; escalares tal cual.
+function mostrarValor(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (Array.isArray(value)) {
+    const s = (value as unknown[]).map((v) => String(v)).filter(Boolean).join(', ')
+    return s || '—'
+  }
+  return String(value)
+}
+
+function CriterioRow({ campo, value }: { campo: FormCampo; value: unknown }) {
   return (
     <tr>
       <td className="w-[78%] border border-slate-300 p-1.5 align-top">
         {campo.etiqueta}
       </td>
       <td className="border border-slate-300 p-1.5 text-center align-top">
-        {value !== null && value !== '' ? String(value) : '—'}
+        {mostrarValor(value)}
       </td>
     </tr>
+  )
+}
+
+// Renderiza un campo tipo 'tabla' (variedades, diversidad…) en el PDF.
+function TablaCriterio({ campo, value }: { campo: FormCampo; value: unknown }) {
+  const cols = campo.config?.columnas ?? []
+  const filas = Array.isArray(value)
+    ? (value as Record<string, unknown>[]).filter((f) =>
+        cols.some((c) => f[c.id] !== null && f[c.id] !== undefined && f[c.id] !== ''),
+      )
+    : []
+  return (
+    <div className="mb-2">
+      <div className="mb-1 text-xs font-semibold">{campo.etiqueta}</div>
+      <table className="w-full border-collapse text-[11px]">
+        <thead>
+          <tr className="bg-slate-50">
+            {cols.map((c) => (
+              <th key={c.id} className="border border-slate-300 p-1 text-left font-semibold">
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.length === 0 ? (
+            <tr>
+              <td colSpan={cols.length} className="border border-slate-300 p-1 text-center text-slate-400">
+                —
+              </td>
+            </tr>
+          ) : (
+            filas.map((fila, i) => (
+              <tr key={i}>
+                {cols.map((c) => (
+                  <td key={c.id} className="border border-slate-300 p-1">
+                    {fila[c.id] !== null && fila[c.id] !== undefined && fila[c.id] !== ''
+                      ? String(fila[c.id])
+                      : '—'}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

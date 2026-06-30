@@ -14,7 +14,7 @@ export interface FichaPendiente {
     productor_id: string
     parcela_ids: string[]
     fecha_inspeccion: string | null
-    respuestas: Record<string, string | number | null>
+    respuestas: Record<string, unknown>
     estado: string
   }
   // etiqueta legible para la UI (productor/tipo)
