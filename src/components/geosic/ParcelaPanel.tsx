@@ -48,7 +48,7 @@ export default function ParcelaPanel({
   }
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-slate-200 bg-white">
+    <aside className="absolute inset-0 z-40 flex flex-col border-slate-200 bg-white md:static md:z-auto md:w-80 md:shrink-0 md:border-l">
       <div className="flex items-start justify-between border-b border-slate-100 p-4">
         <div>
           <h2 className="text-base font-semibold text-slate-800">

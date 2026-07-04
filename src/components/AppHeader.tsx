@@ -4,6 +4,7 @@
 // Used by every module page so navigation is consistent.
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import OfflineStatus from './OfflineStatus'
 
@@ -25,6 +26,7 @@ export default function AppHeader({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   async function signOut() {
     const supabase = createClient()
@@ -33,49 +35,90 @@ export default function AppHeader({
     router.refresh()
   }
 
-  return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logos/casfasa.png" alt="CASFASA" className="h-8 w-auto" />
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-slate-800">Kenzly CASFA</p>
-            <p className="text-xs text-slate-500">{orgNombre}</p>
-          </div>
-        </div>
+  const esActiva = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/')
 
-        <nav className="ml-2 flex items-center gap-1">
-          {TABS.map((t) => {
-            // Highlight on the section root and any of its sub-routes.
-            const active = pathname === t.href || pathname.startsWith(t.href + '/')
-            return (
+  return (
+    <header className="relative border-b border-slate-200 bg-white">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logos/casfasa.png" alt="CASFASA" className="h-8 w-auto shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <p className="text-sm font-semibold text-slate-800">Kenzly CASFA</p>
+              <p className="hidden truncate text-xs text-slate-500 sm:block">{orgNombre}</p>
+            </div>
+          </div>
+
+          {/* Navegación horizontal — solo en pantallas medianas o más grandes */}
+          <nav className="ml-2 hidden items-center gap-1 md:flex">
+            {TABS.map((t) => (
               <Link
                 key={t.href}
                 href={t.href}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  active
+                  esActiva(t.href)
                     ? 'bg-orange-50 text-orange-700'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 {t.label}
               </Link>
-            )
-          })}
-        </nav>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden sm:block">
+            <OfflineStatus />
+          </div>
+          {children}
+          <button
+            onClick={signOut}
+            className="hidden rounded-md px-2.5 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 md:block"
+          >
+            Salir
+          </button>
+          {/* Botón de menú — solo en celular */}
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="rounded-md p-2 text-slate-600 transition hover:bg-slate-100 md:hidden"
+            aria-label="Menú"
+            aria-expanded={menuOpen}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <OfflineStatus />
-        {children}
-        <button
-          onClick={signOut}
-          className="rounded-md px-2.5 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100"
-        >
-          Salir
-        </button>
-      </div>
+      {/* Menú desplegable en celular */}
+      {menuOpen && (
+        <nav className="border-t border-slate-100 bg-white px-2 pb-2 pt-1 md:hidden">
+          {TABS.map((t) => (
+            <Link
+              key={t.href}
+              href={t.href}
+              onClick={() => setMenuOpen(false)}
+              className={`block rounded-md px-3 py-2.5 text-sm font-medium transition ${
+                esActiva(t.href)
+                  ? 'bg-orange-50 text-orange-700'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+          <div className="mt-1 flex items-center justify-between border-t border-slate-100 px-3 pt-2">
+            <OfflineStatus />
+            <button onClick={signOut} className="text-sm font-medium text-slate-600">
+              Salir
+            </button>
+          </div>
+        </nav>
+      )}
     </header>
   )
 }

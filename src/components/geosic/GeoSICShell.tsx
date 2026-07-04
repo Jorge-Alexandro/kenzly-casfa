@@ -30,6 +30,14 @@ export default function GeoSICShell({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [listaAbierta, setListaAbierta] = useState(false) // drawer de lista en celular
+
+  // Al elegir una parcela en celular, cerramos el cajón de la lista para ver
+  // el mapa y el panel de detalle.
+  function elegirParcela(id: string | null) {
+    setSelectedId(id)
+    setListaAbierta(false)
+  }
 
   const selected = useMemo(
     () => parcelas.find((p) => p.id === selectedId) ?? null,
@@ -71,9 +79,22 @@ export default function GeoSICShell({
       {/* Stats bar */}
       <GeoStatsBar stats={stats} />
 
-      {/* Body: list | map | panel */}
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-72 shrink-0 flex-col border-r border-slate-200 bg-white">
+      {/* Body: list | map | panel  (en celular la lista y el panel son overlays) */}
+      <div className="relative flex min-h-0 flex-1">
+        {/* Fondo oscuro al abrir la lista en celular */}
+        {listaAbierta && (
+          <button
+            aria-label="Cerrar lista"
+            onClick={() => setListaAbierta(false)}
+            className="absolute inset-0 z-20 bg-black/30 md:hidden"
+          />
+        )}
+
+        <aside
+          className={`absolute inset-y-0 left-0 z-30 flex w-72 max-w-[85%] shrink-0 flex-col border-r border-slate-200 bg-white transition-transform md:static md:z-auto md:max-w-none md:translate-x-0 ${
+            listaAbierta ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
           <div className="border-b border-slate-100 p-2">
             <input
               value={query}
@@ -85,16 +106,26 @@ export default function GeoSICShell({
           <ParcelaList
             parcelas={filtered}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={elegirParcela}
           />
         </aside>
 
         <main className="relative min-w-0 flex-1">
+          {/* Botón para abrir la lista — solo en celular */}
+          <button
+            onClick={() => setListaAbierta(true)}
+            className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-md bg-white/95 px-3 py-2 text-sm font-medium text-slate-700 shadow-md ring-1 ring-slate-200 md:hidden"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+            Parcelas
+          </button>
           <GeoSICMap
             parcelas={parcelas}
             polygons={polygons}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={elegirParcela}
           />
         </main>
 

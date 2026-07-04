@@ -103,7 +103,7 @@ export default function ProductoresTable({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <Th onClick={() => toggleSort('nombre_completo')} active={sortKey === 'nombre_completo'} asc={asc}>
