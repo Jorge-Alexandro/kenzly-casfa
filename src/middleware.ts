@@ -36,8 +36,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isAuthRoute = pathname.startsWith('/login')
   const isApiRoute = pathname.startsWith('/api/')
+  // /offline es la página de respaldo del service worker: debe ser pública
+  // para que se precachee correctamente (sin redirigir a /login).
+  const isPublicRoute = pathname === '/offline'
 
-  if (!user && !isAuthRoute && !isApiRoute) {
+  if (!user && !isAuthRoute && !isApiRoute && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)

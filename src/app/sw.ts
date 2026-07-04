@@ -19,6 +19,19 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: defaultCache,
+  // Sin conexión: si una navegación no está en caché ni hay red, en vez de
+  // fallar (el error "no-response" de Safari) servimos la página /offline
+  // (estática, siempre precacheada). Así la app SIEMPRE abre offline.
+  fallbacks: {
+    entries: [
+      {
+        url: '/offline',
+        matcher({ request }) {
+          return request.destination === 'document'
+        },
+      },
+    ],
+  },
 })
 
 serwist.addEventListeners()

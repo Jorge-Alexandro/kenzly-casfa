@@ -14,6 +14,9 @@ const withSerwist = withSerwistInit({
   swSrc: 'src/app/sw.ts',
   swDest: 'public/sw.js',
   cacheOnNavigation: true,
+  // Precachea la página de respaldo offline para que el fallback del SW
+  // siempre tenga algo que servir sin conexión.
+  additionalPrecacheEntries: [{ url: '/offline', revision: null }],
   disable: process.env.NODE_ENV === 'development',
 })
 
