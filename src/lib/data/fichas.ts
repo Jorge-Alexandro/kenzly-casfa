@@ -62,7 +62,7 @@ export async function getProductoresLite(): Promise<ProductorLite[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('productores')
-    .select('id, codigo, nombre_completo, tipo_productor')
+    .select('id, codigo, nombre_completo, tipo_productor, comunidad, municipio')
     .order('nombre_completo')
   if (error) throw new Error(`getProductoresLite: ${error.message}`)
   return (data ?? []) as ProductorLite[]

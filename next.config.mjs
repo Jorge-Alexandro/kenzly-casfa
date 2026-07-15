@@ -6,6 +6,13 @@ const nextConfig = {
   // de Mapbox y puede dejarlo sin pintar. Lo desactivamos para estabilizar el
   // ciclo de vida del mapa (no afecta producción).
   reactStrictMode: false,
+
+  // @react-pdf/renderer genera el PDF del recibo de acopio en el servidor.
+  // Se deja fuera del bundle de Next (paquete externo) para que no rompa el
+  // build ni infle los chunks.
+  experimental: {
+    serverComponentsExternalPackages: ['@react-pdf/renderer'],
+  },
 }
 
 // PWA: el service worker se genera desde src/app/sw.ts. Se DESACTIVA en

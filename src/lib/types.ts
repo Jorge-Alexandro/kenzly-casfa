@@ -234,6 +234,10 @@ export interface ProductorLite {
   codigo: string
   nombre_completo: string
   tipo_productor: TipoCultivo
+  // Van en el caché offline porque el promotor los necesita en campo: hay
+  // homónimos entre comunidades y sin este dato no puede elegir al correcto.
+  comunidad: string | null
+  municipio: string | null
 }
 
 // Lite parcela for the capture selector

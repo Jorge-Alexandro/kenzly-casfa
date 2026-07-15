@@ -11,7 +11,16 @@ import OfflineStatus from './OfflineStatus'
 const TABS = [
   { href: '/panel', label: 'Panel' },
   { href: '/geosic', label: 'GeoSIC' },
+  { href: '/satelite', label: 'Satélite' },
   { href: '/productores', label: 'Productores' },
+  { href: '/certificacion', label: 'Certificación' },
+  { href: '/lpa', label: 'LPA' },
+  { href: '/certificados', label: 'Certificados' },
+  { href: '/acopio', label: 'Acopio' },
+  { href: '/ventas', label: 'Ventas' },
+  { href: '/crm', label: 'CRM' },
+  { href: '/estimacion', label: 'Estimación' },
+  { href: '/agroecologia', label: 'Agroecología' },
   { href: '/fichas', label: 'Fichas' },
   { href: '/bitacora', label: 'Bitácora' },
   { href: '/historial', label: 'Historial' },
@@ -40,24 +49,26 @@ export default function AppHeader({
 
   return (
     <header className="relative border-b border-slate-200 bg-white">
-      <div className="flex items-center justify-between px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          {/* La marca nunca se comprime ni se parte en dos líneas */}
+          <div className="flex shrink-0 items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logos/casfasa.png" alt="CASFASA" className="h-8 w-auto shrink-0" />
-            <div className="min-w-0 leading-tight">
-              <p className="text-sm font-semibold text-slate-800">Kenzly CASFA</p>
-              <p className="hidden truncate text-xs text-slate-500 sm:block">{orgNombre}</p>
+            <div className="leading-tight">
+              <p className="whitespace-nowrap text-sm font-semibold text-slate-800">Kenzly CASFA</p>
+              <p className="hidden max-w-[10rem] truncate text-xs text-slate-500 lg:block">{orgNombre}</p>
             </div>
           </div>
 
-          {/* Navegación horizontal — solo en pantallas medianas o más grandes */}
-          <nav className="ml-2 hidden items-center gap-1 md:flex">
+          {/* Navegación horizontal: con 13 módulos ya no cabe siempre — scroll
+              horizontal en vez de encimarse sobre la marca */}
+          <nav className="ml-2 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex [scrollbar-width:thin]">
             {TABS.map((t) => (
               <Link
                 key={t.href}
                 href={t.href}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition ${
                   esActiva(t.href)
                     ? 'bg-orange-50 text-orange-700'
                     : 'text-slate-600 hover:bg-slate-100'
@@ -69,7 +80,7 @@ export default function AppHeader({
           </nav>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <div className="hidden sm:block">
             <OfflineStatus />
           </div>

@@ -34,3 +34,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# datos locales de importación (no subir al repo)
+/scripts/data/
+/scripts/__pycache__/
+/scripts/lpa_import.json

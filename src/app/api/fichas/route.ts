@@ -4,6 +4,14 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/session'
+import { estimarCafe, estimarCacao, CACAO_IM_DEFAULT } from '@/lib/agroecologia/estimacion.mjs'
+
+// Temporada estilo "2025-2026" desde la fecha (corte en septiembre).
+function temporadaDe(fecha: string | null): string {
+  const d = fecha ? new Date(fecha) : new Date()
+  const y = d.getFullYear()
+  return d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`
+}
 
 const TIPOS = ['robusta', 'arabe', 'tropicales']
 const ESTADOS_PERMITIDOS = ['borrador', 'en_revision']
@@ -100,6 +108,54 @@ export async function POST(request: Request) {
       { error: `Ficha creada pero falló el detalle: ${dErr.message}`, ficha_id: ficha.id },
       { status: 500 },
     )
+  }
+
+  // Fuente única: si la ficha capturó estimación de cosecha, escribirla también
+  // en estimacion_cosecha (la fuente del LPA). El servidor RECALCULA con el motor
+  // — no confía en el kg del cliente. Se aplica a la 1ª parcela de la ficha.
+  const estMetodo = respuestasObj['est_metodo'] as string | undefined
+  const estPromedio = Number(respuestasObj['est_promedio']) || 0
+  if (estMetodo && estPromedio > 0) {
+    const esCacao = estMetodo === 'Cacao'
+    const pa = Number(respuestasObj['est_plantas_arboles']) || 0
+    const superficie = Number(respuestasObj['est_superficie_ha']) || null
+    let factor_im: number, kg: number | null, qq: number | null
+    if (esCacao) {
+      const r = estimarCacao({ promedio_mazorcas: estPromedio, n_arboles: pa }, {})
+      factor_im = CACAO_IM_DEFAULT; kg = r.kg_seco; qq = null
+    } else {
+      const r = estimarCafe(
+        { promedio_cerezo_bandola: estPromedio, plantas_ha: pa, superficie_ha: superficie ?? undefined },
+        { kgPorQuintal: tipo === 'arabe' ? 57.5 : 80 },
+      )
+      factor_im = r.factor; kg = r.kg ?? null; qq = r.qq ?? r.qq_ha ?? null
+    }
+    const cultivo = esCacao ? 'cacao' : tipo === 'arabe' ? 'cafe_arabe' : 'cafe_robusta'
+    const { error: eErr } = await supabase.from('estimacion_cosecha').upsert(
+      {
+        org_id: session.orgId,
+        parcela_id: parcela_ids[0],
+        productor_id,
+        ciclo: temporadaDe(fecha_inspeccion),
+        cultivo,
+        metodo: esCacao ? 'cacao' : 'cafe',
+        muestra: { origen: 'ficha', ficha_id: ficha.id, promedio: estPromedio, plantas_arboles: pa },
+        promedio: estPromedio,
+        factor_o_im: factor_im,
+        plantas_ha: esCacao ? null : pa,
+        n_arboles: esCacao ? pa : null,
+        superficie_ha: superficie,
+        kg_estimado: kg,
+        qq_estimado: qq,
+        rendimiento_kg_ha: kg && superficie ? Math.round((kg / superficie) * 100) / 100 : null,
+        valor_final_kg: kg,
+        inspector_id: session.userId,
+        fecha: fecha_inspeccion || null,
+      },
+      { onConflict: 'parcela_id,ciclo,cultivo' },
+    )
+    // Best-effort: no bloquea la ficha si falla.
+    if (eErr) console.error('[fichas] estimacion_cosecha upsert:', eErr.message)
   }
 
   return NextResponse.json({ ok: true, ficha_id: ficha.id })

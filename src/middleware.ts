@@ -55,7 +55,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Run on all routes except Next.js internals and static files
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    // Corre en todas las rutas MENOS internals de Next, archivos estáticos y
+    // los scripts del service worker.
+    //
+    // sw.js / swe-worker-*.js DEBEN quedar fuera: si el middleware los redirige
+    // a /login (usuario sin sesión), la descarga del script del service worker
+    // termina en redirect y, por especificación, la actualización del SW FALLA.
+    // El SW viejo entonces se queda vivo para siempre sirviendo bundles
+    // cacheados (hidratación rota, "Failed to fetch" en el login) y ni
+    // desregistrarlo lo arregla.
+    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|swe-worker-.*\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

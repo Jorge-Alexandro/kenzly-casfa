@@ -22,6 +22,8 @@ const admin = createClient(get('NEXT_PUBLIC_SUPABASE_URL'), get('SUPABASE_SERVIC
 const SINO = ['Sí', 'No'] // columnas SI/NO de la ficha técnica real
 const CUMPLE = ['Sí', 'Parcialmente', 'No'] // resumen de cumplimiento por sección
 const RESULTADO = ['Aprobado', 'Aprobado con Condiciones', 'Sancionado']
+// Nivel de certificación recomendado como hallazgo principal (feedback MAYACERT).
+const NIVELES_SIC = ['T1', 'T2', 'T3', 'O (Orgánico)']
 
 // Columnas de tablas (filas repetibles) pedidas por el SIC.
 // Densidad de siembra = 10000 / (marco A × marco B) — marco de plantación.
@@ -55,6 +57,24 @@ const f = (nombre_interno, etiqueta, tipo = 'enum', opciones = SINO, config = {}
 const mostrarSi = (campo, igual = 'Sí') => ({ condicion: { campo, igual } })
 const enumOtro = ['Otro'] // se concatena a las opciones; activa opcion_otro
 
+// Sección "Estimación de cosecha" (feedback MAYACERT): café (bandolas) y cacao
+// (mazorcas). La captura y el cálculo EN VIVO los hace un componente propio en
+// el wizard (EstimacionFichaSection, usa lib/agroecologia/estimacion.mjs); estos
+// campos guardan el resultado en las respuestas y salen en el PDF. La sección se
+// reconoce por su nombre exacto en el wizard y el reporte.
+const ESTIMACION_SECCION = {
+  nombre: 'Estimación de cosecha',
+  campos: [
+    f('est_metodo', 'Método', 'enum', ['Café', 'Cacao']),
+    f('est_promedio', 'Promedio (cerezo/bandola en café · mazorcas/árbol en cacao)', 'number'),
+    f('est_plantas_arboles', 'Plantas por hectárea (café) · N.º de árboles productivos (cacao)', 'number'),
+    f('est_superficie_ha', 'Superficie (ha)', 'number'),
+    f('est_factor_im', 'Factor de carga (café) · Índice de mazorca IM (cacao)', 'number'),
+    f('est_kg', 'Estimación de cosecha (kg)', 'number'),
+    f('est_qq', 'Estimación de cosecha (quintales)', 'number'),
+  ],
+}
+
 // ----------------------------------------------------------------------------
 // FICHA ROBUSTA
 // ----------------------------------------------------------------------------
@@ -76,11 +96,10 @@ const ROBUSTA = {
       nombre: '3. Producción de plantas y renovación de café',
       campos: [
         f('tiene_vivero', '¿Cuenta con vivero de café?'),
-        f(
-          'mismo_cafetal',
-          '¿Las semillas y plántulas de café y árboles de sombra se obtienen en el mismo cafetal?',
-        ),
+        f('mismo_cafetal', '¿Las semillas y plántulas de café se obtienen en el mismo cafetal?'),
+        f('sombra_mismo_cafetal', '¿Los árboles de sombra se obtienen en el mismo cafetal?'),
         f('insumos_quimicos', '¿Uso de insumos químicos en semilleros y viveros?'),
+        f('insumos_quimicos_cuales', '¿Cuáles insumos químicos?', 'text', null, mostrarSi('insumos_quimicos')),
         f(
           'usa_ogm',
           '¿Uso de semillas obtenidas de organismos genéticamente modificados (OGM / transgénicos)?',
@@ -94,11 +113,9 @@ const ROBUSTA = {
           'inga',
           '¿Se siembran árboles o leguminosa (Inga) a lo largo de las plantaciones de café de modo que contribuyen a la fertilidad del suelo, a la protección contra la erosión, u otras funciones afines?',
         ),
-        f('resiembra_sombra', 'Resiembra de sombra: árboles sembrados este año', 'number', null, mostrarSi('inga')),
-        f(
-          'manejo_cafetal',
-          'Manejo: ¿el productor mantiene su cafetal en condiciones de producción aceptables realizando prácticas de manejo?',
-        ),
+        f('resiembra_sombra', 'Número de árboles de sombra (Inga) sembrados este año', 'number', null, mostrarSi('inga')),
+        f('manejo_cafetal', '¿El productor mantiene su cafetal en condiciones de producción aceptables?'),
+        f('manejo_practicas', '¿Realiza prácticas de manejo (poda, deshije, control de tejido, etc.)?'),
         f(
           'cumple_produccion',
           'La producción de plantas y manejo del cafetal cumple con las normas internas de CASFA',
@@ -134,7 +151,7 @@ const ROBUSTA = {
       campos: [
         f(
           'actividades_conservacion',
-          'Realiza actividades para proteger, conservar y recuperar el bosque, la montaña y ecosistemas naturales.',
+          'Manejo Forestal Sostenible — Realiza actividades para proteger, conservar y recuperar el bosque, la montaña y ecosistemas naturales.',
         ),
         f(
           'talar',
@@ -162,6 +179,7 @@ const ROBUSTA = {
         f('abono_organico', '¿El productor elabora abono orgánico?'),
         f('materiales', 'Describa los materiales empleados en su elaboración.', 'text', null, mostrarSi('abono_organico')),
         f('estiercol', '¿El productor usa estiércol animal?'),
+        f('estiercol_propio', '¿El estiércol es de su propia producción/cosecha?', 'enum', SINO, mostrarSi('estiercol')),
         f(
           'desecho',
           '¿Los desechos de procesamiento orgánico (cáscara, pulpa y cerezas no aceptables, sedimentos de las fosas) son reciclados en la parcela para producir abono de manera que no ejerza impacto negativo en el ambiente circundante?',
@@ -261,7 +279,7 @@ const ROBUSTA = {
           'se_asegura',
           'El productor se asegura que el sitio donde se guarda el producto sea un lugar separado, seco y mantenga condiciones de limpieza adecuada.',
         ),
-        f('insumos_almacen', '¿Existe presencia de insumos químicos en el almacén doméstico del productor?'),
+        f('insumos_almacen', '¿Existe presencia de insumos químicos o contaminantes en el almacén doméstico del productor?'),
         f('plagas_almacen', '¿Existen plagas en el lugar de almacenamiento?'),
         f('combate_plagas_almacen', '¿Cómo se combaten las plagas?', 'text', null, mostrarSi('plagas_almacen')),
         f('transporte', '¿Cómo se transporta el café desde la casa del productor hacia el Centro de Acopio?', 'enum', [
@@ -279,10 +297,12 @@ const ROBUSTA = {
         f('actividades', 'Describe las actividades realizadas en su parcela', 'longtext'),
       ],
     },
+    ESTIMACION_SECCION,
     {
       nombre: 'Resultados de la evaluación',
       campos: [
         f('hallazgos', 'Hallazgos', 'longtext'),
+        f('nivel_recomendado', 'Nivel recomendado (hallazgo principal)', 'enum', NIVELES_SIC),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
         f('fecha_revision', 'Fecha de revisión', 'date'),
         f('firma_productor', 'Firma del productor', 'signature'),
@@ -316,11 +336,10 @@ const ARABE = {
       campos: [
         f('tiene_vivero', '¿Cuenta con vivero de café?'),
         f('variedad_vivero', 'Variedades del vivero', 'tabla', null, { columnas: VIVERO_COLS, condicion: { campo: 'tiene_vivero', igual: 'Sí' } }),
-        f(
-          'semillas_misma_parcela',
-          '¿Las semillas y plántulas de café y árboles de sombra se obtienen en el mismo cafetal?',
-        ),
+        f('semillas_misma_parcela', '¿Las semillas y plántulas de café se obtienen en el mismo cafetal?'),
+        f('sombra_misma_parcela', '¿Los árboles de sombra se obtienen en el mismo cafetal?'),
         f('insumos_viveros', '¿Uso de insumos químicos en semilleros y viveros?'),
+        f('insumos_viveros_cuales', '¿Cuáles insumos químicos?', 'text', null, mostrarSi('insumos_viveros')),
         f(
           'usa_ogm',
           '¿Uso de semillas obtenidas de organismos genéticamente modificados (OGM / transgénicos)?',
@@ -334,11 +353,9 @@ const ARABE = {
           'leguminosas_arboles_suelo',
           '¿Se siembran árboles o leguminosa (Inga) a lo largo de las plantaciones de café de modo que contribuyen a la fertilidad del suelo, a la protección contra la erosión, u otras funciones afines?',
         ),
-        f('resiembra_sombra', 'Resiembra de sombra: árboles sembrados este año', 'number', null, mostrarSi('leguminosas_arboles_suelo')),
-        f(
-          'manejo_cafetal',
-          'Manejo: ¿el productor mantiene su cafetal en condiciones de producción aceptables realizando prácticas de manejo?',
-        ),
+        f('resiembra_sombra', 'Número de árboles de sombra (Inga) sembrados este año', 'number', null, mostrarSi('leguminosas_arboles_suelo')),
+        f('manejo_cafetal', '¿El productor mantiene su cafetal en condiciones de producción aceptables?'),
+        f('manejo_practicas', '¿Realiza prácticas de manejo (poda, deshije, control de tejido, etc.)?'),
         f(
           'cumple_produccion',
           'La producción de plantas y manejo del cafetal cumple con las normas internas de CASFA',
@@ -374,7 +391,7 @@ const ARABE = {
       campos: [
         f(
           'protege_ecosistemas',
-          'Realiza actividades para proteger, conservar y recuperar el bosque, la montaña y ecosistemas naturales.',
+          'Manejo Forestal Sostenible — Realiza actividades para proteger, conservar y recuperar el bosque, la montaña y ecosistemas naturales.',
         ),
         f(
           'prohibido_talar',
@@ -400,6 +417,7 @@ const ARABE = {
           '¿El productor toma medidas de conservación de suelos como corte de hierba alto, terrazas individuales, barreras físicas o barreras vivas establecidas a lo largo de las líneas de contorno a intervalos adecuados para las condiciones del sitio?',
         ),
         f('usa_estiercol', '¿El productor usa estiércol animal?'),
+        f('estiercol_propio', '¿El estiércol es de su propia producción/cosecha?', 'enum', SINO, mostrarSi('usa_estiercol')),
         f(
           'recicla_desechos_organicos',
           '¿Los desechos de procesamiento orgánico (cáscara, pulpa y cerezas no aceptables, sedimentos de las fosas) son reciclados en la parcela para producir abono de manera que no ejerza impacto negativo en el ambiente circundante?',
@@ -500,7 +518,7 @@ const ARABE = {
           'limpieza_almacen',
           'El productor se asegura que el sitio donde se guarda el producto sea un lugar separado, seco y mantenga condiciones de limpieza adecuada.',
         ),
-        f('insumos_quimicos_almacen', '¿Existe presencia de insumos químicos en el almacén doméstico del productor?'),
+        f('insumos_quimicos_almacen', '¿Existe presencia de insumos químicos o contaminantes en el almacén doméstico del productor?'),
         f('plagas_almacen', '¿Existen plagas en el lugar de almacenamiento?'),
         f('combate_plagas_almacen', '¿Cómo se combaten las plagas?', 'text', null, mostrarSi('plagas_almacen')),
         f('transporte_centro_acopio', '¿Cómo se transporta el café desde la casa del productor hacia el Centro de Acopio?', 'enum', [
@@ -519,6 +537,7 @@ const ARABE = {
         f('observaciones_generales', 'Observaciones y/o comentarios', 'longtext'),
       ],
     },
+    ESTIMACION_SECCION,
     {
       nombre: 'Resultados de la evaluación',
       campos: [
@@ -527,6 +546,7 @@ const ARABE = {
         f('hallazgo_3', 'Hallazgo 3', 'text'),
         f('hallazgo_4', 'Hallazgo 4', 'text'),
         f('hallazgo_5', 'Hallazgo 5', 'text'),
+        f('nivel_recomendado', 'Nivel recomendado (hallazgo principal)', 'enum', NIVELES_SIC),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
         f('fecha_revision', 'Fecha de revisión', 'date'),
         f('firma_productor', 'Firma del productor', 'signature'),
@@ -686,6 +706,7 @@ const TROPICALES = {
         f('observaciones_comentarios', 'Observaciones y/o comentarios', 'longtext'),
       ],
     },
+    ESTIMACION_SECCION,
     {
       nombre: 'Resultados de la evaluación',
       campos: [
@@ -694,6 +715,7 @@ const TROPICALES = {
         f('hallazgo_3', 'Hallazgo 3', 'text'),
         f('hallazgo_4', 'Hallazgo 4', 'text'),
         f('hallazgo_5', 'Hallazgo 5', 'text'),
+        f('nivel_recomendado', 'Nivel recomendado (hallazgo principal)', 'enum', NIVELES_SIC),
         f('fecha_revision', 'Fecha de revisión', 'date'),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
         f('firma_productor', 'Firma del productor', 'signature'),

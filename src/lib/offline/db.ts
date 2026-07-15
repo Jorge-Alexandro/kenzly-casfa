@@ -21,6 +21,35 @@ export interface FichaPendiente {
   etiqueta: string
 }
 
+// Una remisión capturada en campo, pendiente de sincronizar.
+// local_id lo genera el celular: es la llave de idempotencia contra la que el
+// servidor hace upsert. En la sierra la red aparece y desaparece a media
+// petición, y sin esto un reintento crearía la remisión dos veces.
+export interface RemisionPendiente {
+  local_id: string
+  creada_en: number
+  body: {
+    local_id: string
+    fecha_remision: string
+    ciclo: string
+    productor_id: string | null
+    proveedor_nombre: string
+    comunidad: string | null
+    municipio: string | null
+    especie: string
+    tipo: string
+    material_saco: string | null
+    total_sacos: number
+    kg_declarado: number | null
+    observaciones: string | null
+    lat: number | null
+    lng: number | null
+    /** Los códigos de las etiquetas escaneadas, en orden. */
+    etiquetas: string[]
+  }
+  etiqueta: string // texto para la UI (productor · N sacos)
+}
+
 interface KenzlyDB extends DBSchema {
   catalogos: {
     key: string
@@ -30,10 +59,14 @@ interface KenzlyDB extends DBSchema {
     key: string
     value: FichaPendiente
   }
+  remisiones: {
+    key: string
+    value: RemisionPendiente
+  }
 }
 
 const DB_NAME = 'kenzly-geosic'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 let dbPromise: Promise<IDBPDatabase<KenzlyDB>> | null = null
 
@@ -43,12 +76,18 @@ function getDB() {
   }
   if (!dbPromise) {
     dbPromise = openDB<KenzlyDB>(DB_NAME, DB_VERSION, {
+      // Sin `if (!contains)` esto borraría la cola de fichas de un promotor que
+      // todavía no ha sincronizado. El upgrade corre en celulares con datos sin
+      // enviar dentro.
       upgrade(db) {
         if (!db.objectStoreNames.contains('catalogos')) {
           db.createObjectStore('catalogos')
         }
         if (!db.objectStoreNames.contains('outbox')) {
           db.createObjectStore('outbox', { keyPath: 'local_id' })
+        }
+        if (!db.objectStoreNames.contains('remisiones')) {
+          db.createObjectStore('remisiones', { keyPath: 'local_id' })
         }
       },
     })
@@ -103,4 +142,25 @@ export async function contarPendientes(): Promise<number> {
 export async function quitarPendiente(localId: string) {
   const db = await getDB()
   await db.delete('outbox', localId)
+}
+
+// --- Remisiones pendientes (captura en campo) ---
+export async function encolarRemision(r: RemisionPendiente) {
+  const db = await getDB()
+  await db.put('remisiones', r)
+}
+
+export async function listarRemisionesPendientes(): Promise<RemisionPendiente[]> {
+  const db = await getDB()
+  return db.getAll('remisiones')
+}
+
+export async function contarRemisionesPendientes(): Promise<number> {
+  const db = await getDB()
+  return db.count('remisiones')
+}
+
+export async function quitarRemisionPendiente(localId: string) {
+  const db = await getDB()
+  await db.delete('remisiones', localId)
 }

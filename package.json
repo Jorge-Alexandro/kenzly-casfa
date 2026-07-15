@@ -9,14 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.5.1",
     "@serwist/next": "^9.5.11",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "@types/mapbox-gl": "^3.4.1",
     "fflate": "^0.8.3",
     "idb": "^8.0.3",
+    "jsqr": "^1.4.0",
     "mapbox-gl": "^3.25.0",
     "next": "14.2.35",
+    "qrcode-generator": "^2.0.4",
     "react": "^18",
     "react-dom": "^18",
     "serwist": "^9.5.11"

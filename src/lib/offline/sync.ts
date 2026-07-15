@@ -8,7 +8,12 @@ import {
   listarPendientes,
   quitarPendiente,
   contarPendientes,
+  encolarRemision,
+  listarRemisionesPendientes,
+  quitarRemisionPendiente,
+  contarRemisionesPendientes,
   type FichaPendiente,
+  type RemisionPendiente,
   type CatalogosCache,
 } from './db'
 
@@ -114,4 +119,70 @@ export async function vaciarCola(): Promise<{ enviadas: number; restantes: numbe
   return { enviadas, restantes: await contarPendientes() }
 }
 
-export { contarPendientes }
+// ---------------------------------------------------------------------------
+// Remisiones de campo
+// ---------------------------------------------------------------------------
+// Mismo contrato que las fichas: si hay red se manda, si no se encola. La
+// diferencia es que el servidor hace UPSERT por local_id, así que reintentar un
+// envío que sí llegó (pero cuya respuesta se perdió) es inofensivo — que es el
+// caso normal cuando la señal entra y sale.
+
+export async function enviarOEncolarRemision(
+  body: RemisionPendiente['body'],
+  etiqueta: string,
+): Promise<ResultadoEnvio> {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch('/api/remisiones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) return { online: true }
+      const b = await res.json().catch(() => ({}))
+      throw new Error(b.error ?? `Error ${res.status}`)
+    } catch (e) {
+      // TypeError = fallo de red real → se encola. Un 400 es un dato malo y se
+      // propaga: encolarlo sólo aplazaría el error hasta que nadie lo mire.
+      if (e instanceof TypeError) {
+        await encolarRemisionLocal(body, etiqueta)
+        return { online: false }
+      }
+      throw e
+    }
+  }
+  await encolarRemisionLocal(body, etiqueta)
+  return { online: false }
+}
+
+async function encolarRemisionLocal(body: RemisionPendiente['body'], etiqueta: string) {
+  await encolarRemision({ local_id: body.local_id, creada_en: Date.now(), body, etiqueta })
+}
+
+export async function vaciarColaRemisiones(): Promise<{ enviadas: number; restantes: number }> {
+  if (!navigator.onLine) {
+    return { enviadas: 0, restantes: await contarRemisionesPendientes() }
+  }
+  const pendientes = await listarRemisionesPendientes()
+  let enviadas = 0
+  for (const r of pendientes) {
+    try {
+      const res = await fetch('/api/remisiones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(r.body),
+      })
+      if (res.ok) {
+        await quitarRemisionPendiente(r.local_id)
+        enviadas++
+      }
+      // Si el servidor la rechaza (400), se queda en la cola y se muestra en la
+      // UI: es un dato que alguien tiene que corregir, no se descarta solo.
+    } catch {
+      break // sin red
+    }
+  }
+  return { enviadas, restantes: await contarRemisionesPendientes() }
+}
+
+export { contarPendientes, contarRemisionesPendientes }

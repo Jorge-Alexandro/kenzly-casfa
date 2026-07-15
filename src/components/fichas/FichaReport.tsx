@@ -8,6 +8,7 @@ import Link from 'next/link'
 import type { FichaDetalle, FormCampo, FormSeccion, RolMembresia } from '@/lib/types'
 import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL } from '@/lib/types'
 import { MESES, normalizarDatos, type BitacoraActividad } from '@/lib/bitacora'
+import { codigoCorto } from '@/lib/format'
 import FichaEstadoControl from './FichaEstadoControl'
 
 // Section names that are handled specially (parcela table / evaluation block)
@@ -143,7 +144,7 @@ export default function FichaReport({
             {parcelas.map((p) => (
               <tr key={p.codigo_parcela}>
                 <Td>{p.nombre || '—'}</Td>
-                <Td>{p.codigo_parcela}</Td>
+                <Td>{codigoCorto(p.codigo_parcela, p.nombre)}</Td>
                 <Td className="text-right">
                   {p.superficie_declarada_ha !== null
                     ? Number(p.superficie_declarada_ha).toFixed(2)

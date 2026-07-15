@@ -21,6 +21,7 @@ import {
   TIPO_FICHA_CULTIVO,
 } from '@/lib/types'
 import SignaturePad from './SignaturePad'
+import EstimacionFichaSection from './EstimacionFichaSection'
 import { codigoCorto } from '@/lib/format'
 import { enviarOEncolar } from '@/lib/offline/sync'
 
@@ -307,20 +308,28 @@ export default function FichaWizard({
           {template.secciones.map((sec) => (
             <Card key={sec.id} title={sec.nombre}>
               <div className="space-y-4">
-                {sec.campos
-                  // #6 Visibilidad condicional: ocultar si la condición no se cumple.
-                  .filter((campo) => {
-                    const c = campo.config?.condicion
-                    return !c || respuestas[c.campo] === c.igual
-                  })
-                  .map((campo) => (
-                    <DynamicField
-                      key={campo.id}
-                      campo={campo}
-                      value={respuestas[campo.nombre_interno] ?? null}
-                      onChange={(v) => setCampo(campo.nombre_interno, v)}
-                    />
-                  ))}
+                {sec.nombre === 'Estimación de cosecha' ? (
+                  <EstimacionFichaSection
+                    tipo={tipo}
+                    value={respuestas}
+                    onResult={(partial) => setRespuestas((r) => ({ ...r, ...partial }))}
+                  />
+                ) : (
+                  sec.campos
+                    // #6 Visibilidad condicional: ocultar si la condición no se cumple.
+                    .filter((campo) => {
+                      const c = campo.config?.condicion
+                      return !c || respuestas[c.campo] === c.igual
+                    })
+                    .map((campo) => (
+                      <DynamicField
+                        key={campo.id}
+                        campo={campo}
+                        value={respuestas[campo.nombre_interno] ?? null}
+                        onChange={(v) => setCampo(campo.nombre_interno, v)}
+                      />
+                    ))
+                )}
               </div>
             </Card>
           ))}
