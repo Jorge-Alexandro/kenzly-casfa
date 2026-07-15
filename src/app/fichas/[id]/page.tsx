@@ -23,7 +23,7 @@ export default async function FichaDetallePage({
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <div className="no-print">
-        <AppHeader orgNombre={result.session.orgNombre} />
+        <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
       </div>
       <FichaReport data={data} rol={result.session.rol} />
     </div>

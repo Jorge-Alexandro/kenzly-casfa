@@ -64,7 +64,7 @@ export default async function CrmPage() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre}>
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
         <Link
           href="/crm/pipeline"
           className="hidden whitespace-nowrap rounded-md border border-orange-600 px-3 py-1.5 text-sm font-medium text-orange-700 transition hover:bg-orange-50 sm:block"

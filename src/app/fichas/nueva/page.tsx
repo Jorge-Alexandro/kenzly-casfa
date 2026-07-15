@@ -16,7 +16,7 @@ export default async function NuevaFichaPage() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre} />
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
       <div className="min-h-0 flex-1 overflow-auto">
         <FichaCaptureClient />
       </div>

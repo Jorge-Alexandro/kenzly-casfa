@@ -6,21 +6,24 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { RolMembresia } from '@/lib/types'
 import OfflineStatus from './OfflineStatus'
 
-const TABS = [
+// soloAdmin: pestañas administrativas que NO ve el SIC (coordinador/inspector).
+// El SIC solo ve su set operativo; el admin ve todo.
+const TABS: { href: string; label: string; soloAdmin?: boolean }[] = [
   { href: '/panel', label: 'Panel' },
   { href: '/geosic', label: 'GeoSIC' },
   { href: '/satelite', label: 'Satélite' },
-  { href: '/productores', label: 'Productores' },
+  { href: '/productores', label: 'Productores', soloAdmin: true },
   { href: '/certificacion', label: 'Certificación' },
   { href: '/lpa', label: 'LPA' },
   { href: '/certificados', label: 'Certificados' },
-  { href: '/acopio', label: 'Acopio' },
-  { href: '/ventas', label: 'Ventas' },
-  { href: '/crm', label: 'CRM' },
+  { href: '/acopio', label: 'Acopio', soloAdmin: true },
+  { href: '/ventas', label: 'Ventas', soloAdmin: true },
+  { href: '/crm', label: 'CRM', soloAdmin: true },
   { href: '/estimacion', label: 'Estimación' },
-  { href: '/agroecologia', label: 'Agroecología' },
+  { href: '/agroecologia', label: 'Agroecología', soloAdmin: true },
   { href: '/fichas', label: 'Fichas' },
   { href: '/bitacora', label: 'Bitácora' },
   { href: '/historial', label: 'Historial' },
@@ -28,14 +31,20 @@ const TABS = [
 
 export default function AppHeader({
   orgNombre,
+  rol,
   children,
 }: {
   orgNombre: string
+  rol?: RolMembresia
   children?: React.ReactNode // slot for module-specific actions (e.g. upload button)
 }) {
   const pathname = usePathname()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
+
+  // El admin ve todas las pestañas; el resto (coordinador/inspector/solo_lectura)
+  // solo el set del SIC (sin los módulos administrativos).
+  const tabs = TABS.filter((t) => !t.soloAdmin || rol === 'admin')
 
   async function signOut() {
     const supabase = createClient()
@@ -64,7 +73,7 @@ export default function AppHeader({
           {/* Navegación horizontal: con 13 módulos ya no cabe siempre — scroll
               horizontal en vez de encimarse sobre la marca */}
           <nav className="ml-2 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex [scrollbar-width:thin]">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <Link
                 key={t.href}
                 href={t.href}
@@ -108,7 +117,7 @@ export default function AppHeader({
       {/* Menú desplegable en celular */}
       {menuOpen && (
         <nav className="border-t border-slate-100 bg-white px-2 pb-2 pt-1 md:hidden">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <Link
               key={t.href}
               href={t.href}

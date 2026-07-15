@@ -16,7 +16,7 @@ export default async function EtiquetasPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-50 print:bg-white">
       <div className="print:hidden">
-        <AppHeader orgNombre={result.session.orgNombre}>
+        <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
           <Link
             href="/acopio/remision"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"

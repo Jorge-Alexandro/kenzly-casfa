@@ -39,7 +39,7 @@ export default async function NuevaBitacoraPage({
 
     return (
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-        <AppHeader orgNombre={result.session.orgNombre} />
+        <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
         <div className="min-h-0 flex-1 overflow-auto">
           <BitacoraEditor
             mode="editar"
@@ -59,7 +59,7 @@ export default async function NuevaBitacoraPage({
   const parcelas = await getParcelasLite()
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre} />
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
       <div className="min-h-0 flex-1 overflow-auto">
         <BitacoraEditor mode="nueva" parcelas={parcelas} anioInicial={anioActual} />
       </div>

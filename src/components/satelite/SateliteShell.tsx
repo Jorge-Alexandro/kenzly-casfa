@@ -74,7 +74,7 @@ export default function SateliteShell({
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={session.orgNombre}>
+      <AppHeader orgNombre={session.orgNombre} rol={session.rol}>
         {puedeActualizar && (
           <BotonActualizar
             parcelaIds={idsConPoligono}

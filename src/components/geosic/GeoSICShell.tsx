@@ -67,7 +67,7 @@ export default function GeoSICShell({
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       {/* Top bar (shared) with the module-specific upload action */}
-      <AppHeader orgNombre={session.orgNombre}>
+      <AppHeader orgNombre={session.orgNombre} rol={session.rol}>
         <button
           onClick={() => setUploadOpen(true)}
           className="rounded-md bg-orange-500 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-600"

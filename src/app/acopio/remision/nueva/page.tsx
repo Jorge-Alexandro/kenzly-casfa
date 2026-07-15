@@ -16,7 +16,7 @@ export default async function NuevaRemisionPage() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre}>
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
         <Link
           href="/acopio/remision"
           className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"

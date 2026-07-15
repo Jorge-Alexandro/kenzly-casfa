@@ -27,7 +27,7 @@ export default async function BitacoraDetallePage({
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre}>
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
         <Link
           href={`/bitacora/${b.id}/pdf`}
           className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"

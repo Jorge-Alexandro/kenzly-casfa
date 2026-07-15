@@ -30,7 +30,7 @@ export default async function FichasPage() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre}>
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
         <Link
           href="/fichas/nueva"
           className="rounded-md bg-orange-500 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-600"
