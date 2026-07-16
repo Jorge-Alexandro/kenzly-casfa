@@ -15,7 +15,7 @@ const TABS: { href: string; label: string; soloAdmin?: boolean }[] = [
   { href: '/panel', label: 'Panel' },
   { href: '/geosic', label: 'GeoSIC' },
   { href: '/satelite', label: 'Satélite' },
-  { href: '/productores', label: 'Productores', soloAdmin: true },
+  { href: '/productores', label: 'Productores' },
   { href: '/certificacion', label: 'Certificación' },
   { href: '/lpa', label: 'LPA' },
   { href: '/certificados', label: 'Certificados' },
