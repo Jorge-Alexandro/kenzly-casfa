@@ -7,15 +7,31 @@ import {
   encolarFicha,
   listarPendientes,
   quitarPendiente,
-  contarPendientes,
+  contarPendientes as contarFichasPendientes,
   encolarRemision,
   listarRemisionesPendientes,
   quitarRemisionPendiente,
   contarRemisionesPendientes,
+  encolarBitacora,
+  listarBitacorasPendientes,
+  quitarBitacoraPendiente,
+  contarBitacorasPendientes,
+  encolarHistorial,
+  listarHistorialesPendientes,
+  quitarHistorialPendiente,
+  contarHistorialesPendientes,
   type FichaPendiente,
   type RemisionPendiente,
+  type BitacoraPendiente,
+  type HistorialPendiente,
   type CatalogosCache,
 } from './db'
+
+function uuid() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : String(Date.now() + Math.random())
+}
 
 // Descarga catálogos del servidor y los cachea en IndexedDB. Solo online.
 export async function sincronizarCatalogos(): Promise<CatalogosCache | null> {
@@ -82,23 +98,83 @@ export async function enviarOEncolar(
 }
 
 async function encolar(body: FichaPendiente['body'], etiqueta: string) {
-  await encolarFicha({
-    local_id:
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : String(Date.now() + Math.random()),
-    creada_en: Date.now(),
-    body,
-    etiqueta,
-  })
+  await encolarFicha({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
 }
 
-// Intenta enviar todas las fichas pendientes. Devuelve cuántas se sincronizaron.
+// --- Bitácoras: mismo contrato que las fichas (online manda; offline encola) ---
+export async function enviarOEncolarBitacora(
+  body: BitacoraPendiente['body'],
+  etiqueta: string,
+): Promise<{ online: boolean; id?: string }> {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch('/api/bitacora', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const { id } = await res.json()
+        return { online: true, id }
+      }
+      const b = await res.json().catch(() => ({}))
+      throw new Error(b.error ?? `Error ${res.status}`)
+    } catch (e) {
+      if (e instanceof TypeError) {
+        await encolarBitacora({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
+        return { online: false }
+      }
+      throw e
+    }
+  }
+  await encolarBitacora({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
+  return { online: false }
+}
+
+// --- Historiales: mismo contrato ---
+export async function enviarOEncolarHistorial(
+  body: HistorialPendiente['body'],
+  etiqueta: string,
+): Promise<{ online: boolean }> {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch('/api/historial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) return { online: true }
+      const b = await res.json().catch(() => ({}))
+      throw new Error(b.error ?? `Error ${res.status}`)
+    } catch (e) {
+      if (e instanceof TypeError) {
+        await encolarHistorial({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
+        return { online: false }
+      }
+      throw e
+    }
+  }
+  await encolarHistorial({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
+  return { online: false }
+}
+
+// Suma de pendientes de las tres colas de captura (fichas + bitácoras + historiales).
+export async function contarPendientes(): Promise<number> {
+  const [f, b, h] = await Promise.all([
+    contarFichasPendientes(),
+    contarBitacorasPendientes(),
+    contarHistorialesPendientes(),
+  ])
+  return f + b + h
+}
+
+// Intenta enviar TODO lo pendiente (fichas, bitácoras, historiales).
 export async function vaciarCola(): Promise<{ enviadas: number; restantes: number }> {
   if (!navigator.onLine) return { enviadas: 0, restantes: await contarPendientes() }
-  const pendientes = await listarPendientes()
   let enviadas = 0
-  for (const f of pendientes) {
+
+  // Fichas
+  for (const f of await listarPendientes()) {
     try {
       const res = await fetch('/api/fichas', {
         method: 'POST',
@@ -108,14 +184,46 @@ export async function vaciarCola(): Promise<{ enviadas: number; restantes: numbe
       if (res.ok) {
         await quitarPendiente(f.local_id)
         enviadas++
-      } else {
-        // Error del servidor (no de red): la dejamos en cola y seguimos.
       }
     } catch {
-      // Sin red: detenemos el ciclo.
+      break // sin red
+    }
+  }
+
+  // Bitácoras
+  for (const b of await listarBitacorasPendientes()) {
+    try {
+      const res = await fetch('/api/bitacora', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(b.body),
+      })
+      if (res.ok) {
+        await quitarBitacoraPendiente(b.local_id)
+        enviadas++
+      }
+    } catch {
       break
     }
   }
+
+  // Historiales
+  for (const h of await listarHistorialesPendientes()) {
+    try {
+      const res = await fetch('/api/historial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(h.body),
+      })
+      if (res.ok) {
+        await quitarHistorialPendiente(h.local_id)
+        enviadas++
+      }
+    } catch {
+      break
+    }
+  }
+
   return { enviadas, restantes: await contarPendientes() }
 }
 
@@ -185,4 +293,4 @@ export async function vaciarColaRemisiones(): Promise<{ enviadas: number; restan
   return { enviadas, restantes: await contarRemisionesPendientes() }
 }
 
-export { contarPendientes, contarRemisionesPendientes }
+export { contarRemisionesPendientes }

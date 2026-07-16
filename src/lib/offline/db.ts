@@ -50,6 +50,30 @@ export interface RemisionPendiente {
   etiqueta: string // texto para la UI (productor · N sacos)
 }
 
+// Una bitácora capturada offline, pendiente de sincronizar (body de POST /api/bitacora).
+export interface BitacoraPendiente {
+  local_id: string
+  creada_en: number
+  body: {
+    parcela_id: string
+    anio: number
+    datos: unknown
+    ficha_id: string | null
+  }
+  etiqueta: string
+}
+
+// Un historial capturado offline, pendiente de sincronizar (body de POST /api/historial).
+export interface HistorialPendiente {
+  local_id: string
+  creada_en: number
+  body: {
+    parcela_id: string
+    anios: { anio: number; datos: unknown }[]
+  }
+  etiqueta: string
+}
+
 interface KenzlyDB extends DBSchema {
   catalogos: {
     key: string
@@ -63,10 +87,18 @@ interface KenzlyDB extends DBSchema {
     key: string
     value: RemisionPendiente
   }
+  bitacoras: {
+    key: string
+    value: BitacoraPendiente
+  }
+  historiales: {
+    key: string
+    value: HistorialPendiente
+  }
 }
 
 const DB_NAME = 'kenzly-geosic'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 let dbPromise: Promise<IDBPDatabase<KenzlyDB>> | null = null
 
@@ -88,6 +120,12 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('remisiones')) {
           db.createObjectStore('remisiones', { keyPath: 'local_id' })
+        }
+        if (!db.objectStoreNames.contains('bitacoras')) {
+          db.createObjectStore('bitacoras', { keyPath: 'local_id' })
+        }
+        if (!db.objectStoreNames.contains('historiales')) {
+          db.createObjectStore('historiales', { keyPath: 'local_id' })
         }
       },
     })
@@ -142,6 +180,42 @@ export async function contarPendientes(): Promise<number> {
 export async function quitarPendiente(localId: string) {
   const db = await getDB()
   await db.delete('outbox', localId)
+}
+
+// --- Bitácoras pendientes ---
+export async function encolarBitacora(b: BitacoraPendiente) {
+  const db = await getDB()
+  await db.put('bitacoras', b)
+}
+export async function listarBitacorasPendientes(): Promise<BitacoraPendiente[]> {
+  const db = await getDB()
+  return db.getAll('bitacoras')
+}
+export async function contarBitacorasPendientes(): Promise<number> {
+  const db = await getDB()
+  return db.count('bitacoras')
+}
+export async function quitarBitacoraPendiente(localId: string) {
+  const db = await getDB()
+  await db.delete('bitacoras', localId)
+}
+
+// --- Historiales pendientes ---
+export async function encolarHistorial(h: HistorialPendiente) {
+  const db = await getDB()
+  await db.put('historiales', h)
+}
+export async function listarHistorialesPendientes(): Promise<HistorialPendiente[]> {
+  const db = await getDB()
+  return db.getAll('historiales')
+}
+export async function contarHistorialesPendientes(): Promise<number> {
+  const db = await getDB()
+  return db.count('historiales')
+}
+export async function quitarHistorialPendiente(localId: string) {
+  const db = await getDB()
+  await db.delete('historiales', localId)
 }
 
 // --- Remisiones pendientes (captura en campo) ---

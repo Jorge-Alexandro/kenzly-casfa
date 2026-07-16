@@ -13,6 +13,7 @@ import {
   type HistorialAnio,
   type HistorialCampo,
 } from '@/lib/historial'
+import { enviarOEncolarHistorial } from '@/lib/offline/sync'
 
 export default function HistorialEditor({
   parcelaId,
@@ -31,6 +32,7 @@ export default function HistorialEditor({
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [guardadaOffline, setGuardadaOffline] = useState(false)
 
   function setCelda(idx: number, campoId: string, valor: string | number | null) {
     setAnios((arr) =>
@@ -63,19 +65,19 @@ export default function HistorialEditor({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/historial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Offline-aware: con red se guarda; sin red se encola y se sube sola.
+      const r = await enviarOEncolarHistorial(
+        {
           parcela_id: parcelaId,
           anios: anios.map((a) => ({ anio: a.anio, datos: a.datos })),
-        }),
-      })
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}))
-        throw new Error(b.error ?? `Error ${res.status}`)
+        },
+        `Historial · ${parcelaLabel}`,
+      )
+      if (r.online) {
+        router.refresh()
+      } else {
+        setGuardadaOffline(true)
       }
-      router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
@@ -125,6 +127,12 @@ export default function HistorialEditor({
 
       {error && (
         <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-600">{error}</p>
+      )}
+      {guardadaOffline && (
+        <p className="mb-3 rounded-md bg-amber-50 p-2 text-sm text-amber-700">
+          Sin conexión: el historial se guardó en el dispositivo y se subirá solo
+          al recuperar señal.
+        </p>
       )}
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

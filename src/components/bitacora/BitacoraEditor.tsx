@@ -15,6 +15,7 @@ import {
 } from '@/lib/bitacora'
 import type { ParcelaLite } from '@/lib/types'
 import { codigoCorto } from '@/lib/format'
+import { enviarOEncolarBitacora } from '@/lib/offline/sync'
 
 interface Props {
   mode: 'nueva' | 'editar'
@@ -41,6 +42,7 @@ export default function BitacoraEditor({
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [guardadaOffline, setGuardadaOffline] = useState(false)
 
   function setActividad(id: string, patch: Partial<BitacoraActividad>) {
     setDatos((d) => ({
@@ -78,18 +80,24 @@ export default function BitacoraEditor({
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/bitacora', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parcela_id: parcelaId, anio, datos, ficha_id: fichaId ?? null }),
-      })
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}))
-        throw new Error(b.error ?? `Error ${res.status}`)
+      // Offline-aware: con red se guarda; sin red se encola y se sube sola.
+      const etiqueta =
+        parcelaFija?.label ??
+        (() => {
+          const p = parcelas.find((x) => x.id === parcelaId)
+          return p ? `Bitácora · ${p.nombre || p.codigo_parcela} (${anio})` : `Bitácora (${anio})`
+        })()
+      const r = await enviarOEncolarBitacora(
+        { parcela_id: parcelaId, anio, datos, ficha_id: fichaId ?? null },
+        etiqueta,
+      )
+      if (r.online && r.id) {
+        router.push(`/bitacora/${r.id}`)
+        router.refresh()
+      } else {
+        setGuardadaOffline(true)
+        setTimeout(() => router.push('/bitacora'), 1500)
       }
-      const { id } = await res.json()
-      router.push(`/bitacora/${id}`)
-      router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
@@ -150,6 +158,12 @@ export default function BitacoraEditor({
 
       {error && (
         <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-600">{error}</p>
+      )}
+      {guardadaOffline && (
+        <p className="mb-3 rounded-md bg-amber-50 p-2 text-sm text-amber-700">
+          Sin conexión: la bitácora se guardó en el dispositivo y se subirá sola
+          al recuperar señal.
+        </p>
       )}
 
       {/* Manejo en campo */}
