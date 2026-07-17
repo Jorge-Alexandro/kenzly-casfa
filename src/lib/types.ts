@@ -247,6 +247,14 @@ export interface ProductorLite {
   // Se muestra arriba de la ficha y viaja en el caché para verlo sin señal.
   estatus_nivel: NivelCertificacion | null
   estatus_anio: number | null
+  // Plantas entregadas en el programa de Agroecología (para verificar en campo).
+  plantas_entregadas: EntregaPlanta[]
+}
+
+export interface EntregaPlanta {
+  anio: number
+  especie: string
+  cantidad: number
 }
 
 export type NivelCertificacion = 'nuevo' | 't1' | 't2' | 't3' | 'organico'

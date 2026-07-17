@@ -5,6 +5,7 @@ import { getProductorDetalle } from '@/lib/data/productores'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import ProductorDetalle from '@/components/productores/ProductorDetalle'
+import EntregasPlantas from '@/components/productores/EntregasPlantas'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,11 @@ export default async function ProductorDetallePage({
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
-      <ProductorDetalle data={data} puedeEditar={puedeEditar} />
+      <ProductorDetalle
+        data={data}
+        puedeEditar={puedeEditar}
+        extra={<EntregasPlantas productorId={params.id} puedeEditar={puedeEditar} />}
+      />
     </div>
   )
 }

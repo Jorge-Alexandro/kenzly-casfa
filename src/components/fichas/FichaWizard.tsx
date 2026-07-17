@@ -807,6 +807,23 @@ function ProductorBanner({
           Parcela(s): {parcelas.map((p) => codigoCorto(p.codigo_parcela, p.nombre)).join(' · ')}
         </p>
       )}
+      {productor.plantas_entregadas.length > 0 && (
+        <div className="mt-2 border-t border-orange-200/70 pt-2">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            Plantas entregadas en Agroecología (verificar en campo)
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {productor.plantas_entregadas.map((e, i) => (
+              <span
+                key={i}
+                className="rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-800 ring-1 ring-green-200"
+              >
+                {e.cantidad} {e.especie} <span className="text-green-600">({e.anio})</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

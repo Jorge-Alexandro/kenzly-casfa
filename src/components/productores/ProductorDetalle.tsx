@@ -20,9 +20,11 @@ const CULTIVO_LABEL = { cafe: 'Café', tropical: 'Tropical', mixto: 'Mixto' }
 export default function ProductorDetalle({
   data,
   puedeEditar,
+  extra,
 }: {
   data: ProductorDetalleData
   puedeEditar: boolean
+  extra?: React.ReactNode
 }) {
   const router = useRouter()
   const [editProductor, setEditProductor] = useState(false)
@@ -103,6 +105,8 @@ export default function ProductorDetalle({
             </p>
           )}
         </div>
+
+        {extra && <div className="mt-4">{extra}</div>}
       </div>
 
       {editProductor && (

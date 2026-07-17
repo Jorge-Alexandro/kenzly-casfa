@@ -80,12 +80,26 @@ export async function getProductoresLite(): Promise<ProductorLite[]> {
     }
   }
 
+  // Plantas entregadas en Agroecología, por productor (para verificar en campo).
+  const { data: entregas } = await supabase
+    .from('agro_entrega_planta')
+    .select('productor_id, anio, especie, cantidad')
+    .order('anio', { ascending: false })
+  const plantasPorProd = new Map<string, { anio: number; especie: string; cantidad: number }[]>()
+  for (const e of entregas ?? []) {
+    const pid = e.productor_id as string
+    const arr = plantasPorProd.get(pid) ?? []
+    arr.push({ anio: e.anio as number, especie: e.especie as string, cantidad: e.cantidad as number })
+    plantasPorProd.set(pid, arr)
+  }
+
   return (data ?? []).map((p) => {
     const e = nivelPorProd.get(p.id)
     return {
       ...p,
       estatus_nivel: (e?.nivel ?? null) as ProductorLite['estatus_nivel'],
       estatus_anio: e?.anio ?? null,
+      plantas_entregadas: plantasPorProd.get(p.id) ?? [],
     }
   }) as ProductorLite[]
 }
