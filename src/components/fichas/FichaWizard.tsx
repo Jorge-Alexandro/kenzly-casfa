@@ -24,7 +24,7 @@ import {
 } from '@/lib/types'
 import SignaturePad from './SignaturePad'
 import EstimacionFichaSection from './EstimacionFichaSection'
-import { codigoCorto } from '@/lib/format'
+import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import { enviarOEncolar } from '@/lib/offline/sync'
 
 // Las respuestas pueden ser escalares o filas de tabla (variedades, etc.).
@@ -106,20 +106,32 @@ export default function FichaWizard({
   }, [parcelasSeleccionadas])
 
   // Al cambiar las parcelas, prellenar los campos con autofill desde la BD.
+  // Con 2+ parcelas, la sección de la parcela se separa por parcela (claves
+  // `campo::parcelaId`) y cada una se autollena con SUS propios datos.
   useEffect(() => {
     if (!template) return
+    const multi = parcelasSeleccionadas.length > 1
     setRespuestas((r) => {
       const next = { ...r }
       for (const sec of template.secciones) {
+        const porParcela = multi && esSeccionPorParcela(sec.nombre)
         for (const c of sec.campos) {
           const key = c.config?.autofill
-          if (key) next[c.nombre_interno] = autofillValores[key]
+          if (!key) continue
+          if (porParcela) {
+            for (const p of parcelasSeleccionadas) {
+              const val = key === 'superficie_cafe' ? p.cafe_superficie_ha : p.cafe_produccion_qq
+              next[`${c.nombre_interno}::${p.id}`] = val ?? null
+            }
+          } else {
+            next[c.nombre_interno] = autofillValores[key]
+          }
         }
       }
       return next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autofillValores, template])
+  }, [autofillValores, template, parcelasSeleccionadas])
 
   const productor = productores.find((p) => p.id === productorId)
 
@@ -314,34 +326,75 @@ export default function FichaWizard({
             </Field>
           </Card>
 
-          {template.secciones.map((sec) => (
-            <Card key={sec.id} title={sec.nombre}>
-              <div className="space-y-4">
+          {template.secciones.map((sec) => {
+            const porParcela =
+              esSeccionPorParcela(sec.nombre) && parcelasSeleccionadas.length > 1
+            return (
+              <Card key={sec.id} title={sec.nombre}>
                 {sec.nombre === 'Estimación de cosecha' ? (
                   <EstimacionFichaSection
                     tipo={tipo}
                     value={respuestas}
                     onResult={(partial) => setRespuestas((r) => ({ ...r, ...partial }))}
                   />
+                ) : porParcela ? (
+                  // #D Una sub-tarjeta por parcela (variedades/producción separados).
+                  <div className="space-y-4">
+                    {parcelasSeleccionadas.map((parcela) => (
+                      <div
+                        key={parcela.id}
+                        className="rounded-lg border border-orange-100 bg-orange-50/40 p-3"
+                      >
+                        <p className="mb-3 text-sm font-semibold text-orange-800">
+                          Parcela: {codigoCorto(parcela.codigo_parcela, parcela.nombre)}
+                          {parcela.nombre ? ` — ${parcela.nombre}` : ''}
+                        </p>
+                        <div className="space-y-4">
+                          {sec.campos
+                            .filter((campo) => {
+                              const c = campo.config?.condicion
+                              return (
+                                !c ||
+                                respuestas[`${c.campo}::${parcela.id}`] === c.igual ||
+                                respuestas[c.campo] === c.igual
+                              )
+                            })
+                            .map((campo) => {
+                              const k = `${campo.nombre_interno}::${parcela.id}`
+                              return (
+                                <DynamicField
+                                  key={campo.id}
+                                  campo={campo}
+                                  value={respuestas[k] ?? null}
+                                  onChange={(v) => setCampo(k, v)}
+                                />
+                              )
+                            })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  sec.campos
-                    // #6 Visibilidad condicional: ocultar si la condición no se cumple.
-                    .filter((campo) => {
-                      const c = campo.config?.condicion
-                      return !c || respuestas[c.campo] === c.igual
-                    })
-                    .map((campo) => (
-                      <DynamicField
-                        key={campo.id}
-                        campo={campo}
-                        value={respuestas[campo.nombre_interno] ?? null}
-                        onChange={(v) => setCampo(campo.nombre_interno, v)}
-                      />
-                    ))
+                  <div className="space-y-4">
+                    {sec.campos
+                      // #6 Visibilidad condicional: ocultar si la condición no se cumple.
+                      .filter((campo) => {
+                        const c = campo.config?.condicion
+                        return !c || respuestas[c.campo] === c.igual
+                      })
+                      .map((campo) => (
+                        <DynamicField
+                          key={campo.id}
+                          campo={campo}
+                          value={respuestas[campo.nombre_interno] ?? null}
+                          onChange={(v) => setCampo(campo.nombre_interno, v)}
+                        />
+                      ))}
+                  </div>
                 )}
-              </div>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
 
           {error && (
             <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-600">

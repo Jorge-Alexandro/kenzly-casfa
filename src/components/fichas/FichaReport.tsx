@@ -8,7 +8,7 @@ import Link from 'next/link'
 import type { FichaDetalle, FormCampo, FormSeccion, RolMembresia } from '@/lib/types'
 import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL } from '@/lib/types'
 import { MESES, normalizarDatos, type BitacoraActividad } from '@/lib/bitacora'
-import { codigoCorto } from '@/lib/format'
+import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import FichaEstadoControl from './FichaEstadoControl'
 
 // Section names that are handled specially (parcela table / evaluation block)
@@ -157,7 +157,7 @@ export default function FichaReport({
 
         {/* Criterio sections as question|answer tables */}
         {criterioSecciones.map((sec) => (
-          <CriterioSection key={sec.id} seccion={sec} respuesta={r} />
+          <CriterioSection key={sec.id} seccion={sec} respuesta={r} parcelas={parcelas} />
         ))}
 
         {/* Evaluation + declaration block (data-driven from the eval section:
@@ -275,9 +275,11 @@ function BitacoraAnexo({
 function CriterioSection({
   seccion,
   respuesta,
+  parcelas,
 }: {
   seccion: FormSeccion
   respuesta: (k: string) => unknown
+  parcelas: { id: string; codigo_parcela: string; nombre: string | null }[]
 }) {
   // Signatures never appear in criterio sections; the eval block handles them.
   // Las tablas (variedades, diversidad) se muestran como bloques propios.
@@ -287,20 +289,45 @@ function CriterioSection({
   const filaCampos = campos.filter((c) => c.tipo !== 'tabla')
   const tablaCampos = campos.filter((c) => c.tipo === 'tabla')
 
+  // #D Cuando la ficha tiene 2+ parcelas, la sección de la parcela se guardó
+  // por parcela (claves `campo::parcelaId`): la mostramos separada.
+  const porParcela = esSeccionPorParcela(seccion.nombre) && parcelas.length > 1
+
+  function bloque(sufijo: string) {
+    const val = (c: FormCampo) => respuesta(`${c.nombre_interno}${sufijo}`)
+    return (
+      <>
+        {tablaCampos.map((campo) => (
+          <TablaCriterio key={campo.id} campo={campo} value={val(campo)} />
+        ))}
+        {filaCampos.length > 0 && (
+          <table className="w-full border-collapse text-xs">
+            <tbody>
+              {filaCampos.map((campo) => (
+                <CriterioRow key={campo.id} campo={campo} value={val(campo)} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </>
+    )
+  }
+
   return (
     <div className="report-section mb-4">
       <SectionTitle>{seccion.nombre}</SectionTitle>
-      {tablaCampos.map((campo) => (
-        <TablaCriterio key={campo.id} campo={campo} value={respuesta(campo.nombre_interno)} />
-      ))}
-      {filaCampos.length > 0 && (
-        <table className="w-full border-collapse text-xs">
-          <tbody>
-            {filaCampos.map((campo) => (
-              <CriterioRow key={campo.id} campo={campo} value={respuesta(campo.nombre_interno)} />
-            ))}
-          </tbody>
-        </table>
+      {porParcela ? (
+        parcelas.map((p) => (
+          <div key={p.id} className="mb-3">
+            <p className="mb-1 text-xs font-semibold text-slate-700">
+              Parcela: {codigoCorto(p.codigo_parcela, p.nombre)}
+              {p.nombre ? ` — ${p.nombre}` : ''}
+            </p>
+            {bloque(`::${p.id}`)}
+          </div>
+        ))
+      ) : (
+        bloque('')
       )}
     </div>
   )
