@@ -20,9 +20,19 @@ export interface BitacoraInsumo {
   fecha_aplicacion: string
 }
 
+// Cosecha por especie (CHESPAL): fecha y kilogramos EN UVA (cereza), separados
+// para café arábico y robusta (antes era una sola "Fecha de cosecha").
+export interface BitacoraCosecha {
+  arabica_fecha: string
+  arabica_kg_uva: number | null
+  robusta_fecha: string
+  robusta_kg_uva: number | null
+}
+
 export interface BitacoraDatos {
   actividades: BitacoraActividad[]
   insumos: BitacoraInsumo[]
+  cosecha: BitacoraCosecha
   observaciones: string
 }
 
@@ -62,9 +72,12 @@ const PLANTILLA_ACTIVIDADES: Omit<BitacoraActividad, 'gastos' | 'marcas'>[] = [
   { id: 'vivero', nombre: 'Vivero (N° de plantas / variedad)', grupo: 'manejo', detalle: '' },
   { id: 'abonar', nombre: 'Abonar (materiales)', grupo: 'manejo', detalle: '' },
   { id: 'limpieza_beneficio', nombre: 'Limpieza del beneficio húmedo', grupo: 'cosecha' },
-  { id: 'fecha_cosecha', nombre: 'Fecha de cosecha', grupo: 'cosecha' },
   { id: 'conservacion_suelos', nombre: 'Conservación de suelos', grupo: 'cosecha' },
 ]
+
+export function cosechaVacia(): BitacoraCosecha {
+  return { arabica_fecha: '', arabica_kg_uva: null, robusta_fecha: '', robusta_kg_uva: null }
+}
 
 // Crea un grid vacío (todas las actividades, sin marcas).
 export function bitacoraVacia(): BitacoraDatos {
@@ -75,6 +88,7 @@ export function bitacoraVacia(): BitacoraDatos {
       marcas: Array(NUM_COLUMNAS).fill(false),
     })),
     insumos: [emptyInsumo()],
+    cosecha: cosechaVacia(),
     observaciones: '',
   }
 }
@@ -116,6 +130,7 @@ export function normalizarDatos(raw: Partial<BitacoraDatos> | null): BitacoraDat
   return {
     actividades,
     insumos: raw.insumos && raw.insumos.length > 0 ? raw.insumos : [emptyInsumo()],
+    cosecha: { ...cosechaVacia(), ...(raw.cosecha ?? {}) },
     observaciones: raw.observaciones ?? '',
   }
 }

@@ -117,21 +117,11 @@ export default function BitacoraEditor({
             Parcela
           </label>
           {mode === 'nueva' ? (
-            <select
+            <ParcelaBuscador
+              parcelas={parcelas}
               value={parcelaId}
-              onChange={(e) => setParcelaId(e.target.value)}
-              className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-            >
-              <option value="">Selecciona…</option>
-              {parcelas.map((p) => {
-                const cod = codigoCorto(p.codigo_parcela, p.nombre)
-                return (
-                  <option key={p.id} value={p.id}>
-                    {(p.nombre || cod) + (p.nombre ? ` · ${cod}` : '')}
-                  </option>
-                )
-              })}
-            </select>
+              onChange={setParcelaId}
+            />
           ) : (
             <div className="text-sm font-medium text-slate-800">
               {parcelaFija?.label}
@@ -166,21 +156,39 @@ export default function BitacoraEditor({
         </p>
       )}
 
-      {/* Manejo en campo */}
+      {/* Manejo en campo (sin título, a pedido del SIC) */}
       <GridActividades
-        titulo="Manejo en campo"
         actividades={manejo}
         onMarca={toggleMarca}
         onActividad={setActividad}
       />
 
-      {/* Estimación de cosecha */}
+      {/* Actividades de cosecha */}
       <GridActividades
-        titulo="Estimación de cosecha"
         actividades={cosecha}
         onMarca={toggleMarca}
         onActividad={setActividad}
       />
+
+      {/* Cosecha por especie: fecha + kg EN UVA, separado árabe/robusta */}
+      <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CosechaEspecie
+            titulo="Café Arábica"
+            fecha={datos.cosecha.arabica_fecha}
+            kg={datos.cosecha.arabica_kg_uva}
+            onFecha={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_fecha: v } }))}
+            onKg={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_kg_uva: v } }))}
+          />
+          <CosechaEspecie
+            titulo="Café Robusta"
+            fecha={datos.cosecha.robusta_fecha}
+            kg={datos.cosecha.robusta_kg_uva}
+            onFecha={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_fecha: v } }))}
+            onKg={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_kg_uva: v } }))}
+          />
+        </div>
+      </section>
 
       {/* Insumos */}
       <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
@@ -241,22 +249,119 @@ export default function BitacoraEditor({
   )
 }
 
+// Buscador de parcela por nombre/código (reemplaza el <select> largo).
+function ParcelaBuscador({
+  parcelas,
+  value,
+  onChange,
+}: {
+  parcelas: ParcelaLite[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  const [q, setQ] = useState('')
+  const [abierto, setAbierto] = useState(false)
+  const seleccionada = parcelas.find((p) => p.id === value)
+  const query = q.trim().toLowerCase()
+  const filtradas = query
+    ? parcelas.filter(
+        (p) =>
+          (p.nombre ?? '').toLowerCase().includes(query) ||
+          p.codigo_parcela.toLowerCase().includes(query),
+      )
+    : parcelas
+  return (
+    <div className="relative">
+      <input
+        value={abierto ? q : seleccionada ? `${seleccionada.nombre || codigoCorto(seleccionada.codigo_parcela, seleccionada.nombre)} · ${codigoCorto(seleccionada.codigo_parcela, seleccionada.nombre)}` : q}
+        onChange={(e) => { setQ(e.target.value); setAbierto(true) }}
+        onFocus={() => { setQ(''); setAbierto(true) }}
+        placeholder="Buscar parcela por nombre o código…"
+        className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+      />
+      {abierto && (
+        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+          {filtradas.slice(0, 60).map((p) => {
+            const cod = codigoCorto(p.codigo_parcela, p.nombre)
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => { onChange(p.id); setAbierto(false); setQ('') }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-orange-50"
+              >
+                <span className="font-medium text-slate-800">{p.nombre || cod}</span>
+                <span className="ml-2 text-xs text-slate-400">{cod}</span>
+              </button>
+            )
+          })}
+          {filtradas.length === 0 && (
+            <p className="px-3 py-2 text-sm text-slate-400">Sin coincidencias</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Cosecha por especie: fecha + kg en uva.
+function CosechaEspecie({
+  titulo,
+  fecha,
+  kg,
+  onFecha,
+  onKg,
+}: {
+  titulo: string
+  fecha: string
+  kg: number | null
+  onFecha: (v: string) => void
+  onKg: (v: number | null) => void
+}) {
+  return (
+    <div className="rounded-md border border-slate-100 p-3">
+      <p className="mb-2 text-sm font-semibold text-slate-700">{titulo}</p>
+      <label className="mb-2 block">
+        <span className="mb-1 block text-xs text-slate-500">Fecha de cosecha</span>
+        <input
+          type="date"
+          value={fecha}
+          onChange={(e) => onFecha(e.target.value)}
+          className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-xs text-slate-500">Cosecha en uva (kg)</span>
+        <input
+          type="number"
+          step="0.1"
+          value={kg ?? ''}
+          onChange={(e) => onKg(e.target.value === '' ? null : Number(e.target.value))}
+          className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+        />
+      </label>
+    </div>
+  )
+}
+
 function GridActividades({
   titulo,
   actividades,
   onMarca,
   onActividad,
 }: {
-  titulo: string
+  titulo?: string
   actividades: BitacoraActividad[]
   onMarca: (id: string, col: number) => void
   onActividad: (id: string, patch: Partial<BitacoraActividad>) => void
 }) {
   return (
     <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        {titulo}
-      </h2>
+      {titulo && (
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {titulo}
+        </h2>
+      )}
       <div className="overflow-x-auto">
         <table className="border-collapse text-xs">
           <thead>

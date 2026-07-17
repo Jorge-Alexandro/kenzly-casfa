@@ -56,7 +56,31 @@ export default function BitacoraReport({
         </p>
 
         <TablaActividades titulo="Manejo en campo" actividades={manejo} />
-        <TablaActividades titulo="Estimación de cosecha" actividades={cosecha} />
+        <TablaActividades titulo="Actividades de cosecha" actividades={cosecha} />
+
+        {/* Cosecha por especie (fecha + kg en uva) */}
+        <h2 className="mb-1 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">Cosecha en uva</h2>
+        <table className="mb-4 w-full border-collapse text-[11px]">
+          <thead>
+            <tr className="bg-slate-50">
+              <Th>Especie</Th>
+              <Th>Fecha de cosecha</Th>
+              <Th>Cosecha en uva (kg)</Th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <Td>Café Arábica</Td>
+              <Td>{datos.cosecha?.arabica_fecha || '—'}</Td>
+              <Td>{datos.cosecha?.arabica_kg_uva ?? '—'}</Td>
+            </tr>
+            <tr>
+              <Td>Café Robusta</Td>
+              <Td>{datos.cosecha?.robusta_fecha || '—'}</Td>
+              <Td>{datos.cosecha?.robusta_kg_uva ?? '—'}</Td>
+            </tr>
+          </tbody>
+        </table>
 
         {/* Insumos */}
         <h2 className="mb-1 mt-4 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">

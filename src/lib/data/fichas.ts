@@ -65,7 +65,29 @@ export async function getProductoresLite(): Promise<ProductorLite[]> {
     .select('id, codigo, nombre_completo, tipo_productor, comunidad, municipio')
     .order('nombre_completo')
   if (error) throw new Error(`getProductoresLite: ${error.message}`)
-  return (data ?? []) as ProductorLite[]
+
+  // Estatus de certificación vigente por productor: el nivel del año más
+  // reciente. Se anexa al catálogo para mostrarlo arriba de la ficha (y offline).
+  const { data: est } = await supabase
+    .from('certificacion_estatus')
+    .select('productor_id, anio, nivel')
+    .order('anio', { ascending: false })
+  const nivelPorProd = new Map<string, { nivel: string; anio: number }>()
+  for (const e of est ?? []) {
+    const pid = e.productor_id as string
+    if (!nivelPorProd.has(pid)) {
+      nivelPorProd.set(pid, { nivel: e.nivel as string, anio: e.anio as number })
+    }
+  }
+
+  return (data ?? []).map((p) => {
+    const e = nivelPorProd.get(p.id)
+    return {
+      ...p,
+      estatus_nivel: (e?.nivel ?? null) as ProductorLite['estatus_nivel'],
+      estatus_anio: e?.anio ?? null,
+    }
+  }) as ProductorLite[]
 }
 
 export async function getParcelasLite(): Promise<ParcelaLite[]> {

@@ -243,6 +243,29 @@ export interface ProductorLite {
   // homónimos entre comunidades y sin este dato no puede elegir al correcto.
   comunidad: string | null
   municipio: string | null
+  // Estatus de certificación vigente (nivel + año), del módulo Certificación.
+  // Se muestra arriba de la ficha y viaja en el caché para verlo sin señal.
+  estatus_nivel: NivelCertificacion | null
+  estatus_anio: number | null
+}
+
+export type NivelCertificacion = 'nuevo' | 't1' | 't2' | 't3' | 'organico'
+
+// Etiqueta corta para el estatus (formato del LPA: O / T3 / T2 / T1 / Nuevo).
+export const NIVEL_CERT_LABEL: Record<NivelCertificacion, string> = {
+  organico: 'O',
+  t3: 'T3',
+  t2: 'T2',
+  t1: 'T1',
+  nuevo: 'Nuevo',
+}
+
+export const NIVEL_CERT_NOMBRE: Record<NivelCertificacion, string> = {
+  organico: 'Orgánico',
+  t3: 'Transición 3',
+  t2: 'Transición 2',
+  t1: 'Transición 1',
+  nuevo: 'Nuevo ingreso',
 }
 
 // Lite parcela for the capture selector

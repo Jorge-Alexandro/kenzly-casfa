@@ -19,6 +19,8 @@ import type {
 import {
   TIPO_FICHA_LABEL,
   TIPO_FICHA_CULTIVO,
+  NIVEL_CERT_LABEL,
+  NIVEL_CERT_NOMBRE,
 } from '@/lib/types'
 import SignaturePad from './SignaturePad'
 import EstimacionFichaSection from './EstimacionFichaSection'
@@ -294,6 +296,13 @@ export default function FichaWizard({
       {/* STEP 4: dynamic form */}
       {step === 4 && template && (
         <div>
+          {/* Estatus del productor arriba de todo (CHESPAL) */}
+          {productor && (
+            <ProductorBanner
+              productor={productor}
+              parcelas={parcelasSeleccionadas}
+            />
+          )}
           <Card title="Datos de la inspección">
             <Field label="Fecha de inspección">
               <input
@@ -742,6 +751,66 @@ function evalFormula(formula: string, fila: FilaTabla): number | null {
 }
 
 // --- small layout helpers ---
+// Banner con el estatus del productor arriba de la ficha (CHESPAL): nombre,
+// código, comunidad y NIVEL de certificación vigente (O / T3 / T2 / T1 / Nuevo).
+function ProductorBanner({
+  productor,
+  parcelas,
+}: {
+  productor: ProductorLite
+  parcelas: ParcelaLite[]
+}) {
+  const nivel = productor.estatus_nivel
+  const colores: Record<string, string> = {
+    organico: 'bg-green-100 text-green-800 ring-green-200',
+    t3: 'bg-lime-100 text-lime-800 ring-lime-200',
+    t2: 'bg-amber-100 text-amber-800 ring-amber-200',
+    t1: 'bg-orange-100 text-orange-800 ring-orange-200',
+    nuevo: 'bg-slate-100 text-slate-700 ring-slate-200',
+  }
+  return (
+    <section className="mb-4 rounded-xl border border-orange-200 bg-orange-50/60 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-slate-800">
+            {productor.nombre_completo}
+          </p>
+          <p className="text-xs text-slate-500">
+            {productor.codigo}
+            {(productor.comunidad || productor.municipio) &&
+              ` · ${[productor.comunidad, productor.municipio].filter(Boolean).join(', ')}`}
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            Estatus de certificación
+          </span>
+          {nivel ? (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-bold ring-1 ${colores[nivel] ?? colores.nuevo}`}
+            >
+              {NIVEL_CERT_LABEL[nivel]}
+              <span className="text-xs font-normal opacity-80">
+                {NIVEL_CERT_NOMBRE[nivel]}
+                {productor.estatus_anio ? ` ${productor.estatus_anio}` : ''}
+              </span>
+            </span>
+          ) : (
+            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+              Sin estatus registrado
+            </span>
+          )}
+        </div>
+      </div>
+      {parcelas.length > 0 && (
+        <p className="mt-2 border-t border-orange-200/70 pt-2 text-xs text-slate-500">
+          Parcela(s): {parcelas.map((p) => codigoCorto(p.codigo_parcela, p.nombre)).join(' · ')}
+        </p>
+      )}
+    </section>
+  )
+}
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
