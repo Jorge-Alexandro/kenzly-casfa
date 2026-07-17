@@ -443,12 +443,17 @@ function DynamicField({
         <textarea rows={2} value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
       )}
       {campo.tipo === 'number' && (
-        <input
-          type="number"
-          value={value === null || value === undefined ? '' : (value as number)}
-          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-          className={base}
-        />
+        <>
+          <input
+            type="number"
+            value={value === null || value === undefined ? '' : (value as number)}
+            onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+            className={base}
+          />
+          {campo.config?.convertidor && (
+            <Convertidor salida={campo.config.convertidor} onUsar={onChange} />
+          )}
+        </>
       )}
       {campo.tipo === 'date' && (
         <input type="date" value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
@@ -458,6 +463,61 @@ function DynamicField({
       )}
       {campo.tipo === 'signature' && (
         <SignaturePad value={str || null} onChange={(v) => onChange(v)} />
+      )}
+    </div>
+  )
+}
+
+// Convertidor de producción (CHESPAL): el productor dicta "10 quintales" o
+// "1 tonelada"; la app calcula el total en la unidad de la ficha y lo pone en
+// el campo con "Usar". 1 quintal = 57.5 kg · 1 tonelada = 1000 kg.
+const KG_POR_QUINTAL = 57.5
+function Convertidor({
+  salida,
+  onUsar,
+}: {
+  salida: 'kg' | 'qq'
+  onUsar: (v: number) => void
+}) {
+  const [cantidad, setCantidad] = useState('')
+  const [unidad, setUnidad] = useState<'qq' | 't' | 'kg'>('qq')
+
+  const n = Number(cantidad)
+  const kg = !Number.isFinite(n) || n <= 0 ? null : unidad === 'qq' ? n * KG_POR_QUINTAL : unidad === 't' ? n * 1000 : n
+  const resultado = kg === null ? null : salida === 'kg' ? kg : kg / KG_POR_QUINTAL
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1.5 text-xs text-slate-600">
+      <span className="font-medium">El productor dijo:</span>
+      <input
+        type="number"
+        value={cantidad}
+        onChange={(e) => setCantidad(e.target.value)}
+        placeholder="10"
+        className="w-16 rounded border border-slate-200 px-1.5 py-1 outline-none focus:border-orange-400"
+      />
+      <select
+        value={unidad}
+        onChange={(e) => setUnidad(e.target.value as typeof unidad)}
+        className="rounded border border-slate-200 px-1.5 py-1 outline-none focus:border-orange-400"
+      >
+        <option value="qq">quintales (57.5 kg)</option>
+        <option value="t">toneladas</option>
+        <option value="kg">kilogramos</option>
+      </select>
+      {resultado !== null && (
+        <>
+          <span className="tabular-nums">
+            = <strong>{resultado.toFixed(2)} {salida === 'kg' ? 'kg' : 'qq'}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => onUsar(Number(resultado.toFixed(2)))}
+            className="rounded bg-orange-500 px-2 py-1 font-medium text-white hover:bg-orange-600"
+          >
+            Usar
+          </button>
+        </>
       )}
     </div>
   )

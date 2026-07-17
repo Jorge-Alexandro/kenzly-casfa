@@ -113,8 +113,8 @@ const ROBUSTA = {
       campos: [
         ...HORAS_INSPECCION,
         f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
-        f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior' }),
-        f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual' }),
+        f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior', convertidor: 'qq' }),
+        f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual', convertidor: 'qq' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
       ],
     },
@@ -362,8 +362,8 @@ const ARABE = {
         f('estatus_parcela', 'Estatus de la parcela', 'text'),
         // Árabe: producción POR variedad en la tabla (CHESPAL).
         f('variedades', 'Variedades, marco de plantación y producción por variedad', 'tabla', null, { columnas: VARIEDADES_COLS_ARABE }),
-        f('produccion_anterior_kg', 'Producción anterior cosechada (kg)', 'number', null, { autofill: 'produccion_anterior' }),
-        f('produccion_actual_kg', 'Producción actual (kg)', 'number', null, { autofill: 'produccion_actual' }),
+        f('produccion_anterior_kg', 'Producción anterior cosechada (kg)', 'number', null, { autofill: 'produccion_anterior', convertidor: 'kg' }),
+        f('produccion_actual_kg', 'Producción actual (kg)', 'number', null, { autofill: 'produccion_actual', convertidor: 'kg' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
       ],
     },

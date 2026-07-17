@@ -200,6 +200,10 @@ export interface CampoConfig {
   opcion_otro?: boolean
   // enum de selección múltiple (checkboxes); el valor es un arreglo de opciones.
   multiple?: boolean
+  // number con ayuda de conversión: el productor dicta "10 quintales" o
+  // "1 tonelada" y la app calcula el total en la unidad de la ficha.
+  // 'kg' (árabe) o 'qq' (robusta; 1 qq = 57.5 kg).
+  convertidor?: 'kg' | 'qq'
 }
 
 export interface FormCampo {

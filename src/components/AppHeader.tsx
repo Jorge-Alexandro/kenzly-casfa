@@ -21,6 +21,7 @@ const TABS: { href: string; label: string; soloAdmin?: boolean }[] = [
   { href: '/certificados', label: 'Certificados' },
   { href: '/acopio', label: 'Acopio', soloAdmin: true },
   { href: '/ventas', label: 'Ventas', soloAdmin: true },
+  { href: '/contratos', label: 'Contratos', soloAdmin: true },
   { href: '/crm', label: 'CRM', soloAdmin: true },
   { href: '/estimacion', label: 'Estimación' },
   { href: '/agroecologia', label: 'Agroecología', soloAdmin: true },
