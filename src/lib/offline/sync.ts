@@ -168,6 +168,26 @@ export async function contarPendientes(): Promise<number> {
   return f + b + h
 }
 
+// Lista legible de TODO lo pendiente de subir (para "ver borradores pendientes").
+export interface PendienteResumen {
+  tipo: 'Ficha' | 'Bitácora' | 'Historial'
+  etiqueta: string
+  creada_en: number
+}
+export async function listarTodosPendientes(): Promise<PendienteResumen[]> {
+  const [fichas, bitas, hists] = await Promise.all([
+    listarPendientes(),
+    listarBitacorasPendientes(),
+    listarHistorialesPendientes(),
+  ])
+  const items: PendienteResumen[] = [
+    ...fichas.map((f) => ({ tipo: 'Ficha' as const, etiqueta: f.etiqueta, creada_en: f.creada_en })),
+    ...bitas.map((b) => ({ tipo: 'Bitácora' as const, etiqueta: b.etiqueta, creada_en: b.creada_en })),
+    ...hists.map((h) => ({ tipo: 'Historial' as const, etiqueta: h.etiqueta, creada_en: h.creada_en })),
+  ]
+  return items.sort((a, b) => b.creada_en - a.creada_en)
+}
+
 // Intenta enviar TODO lo pendiente (fichas, bitácoras, historiales).
 export async function vaciarCola(): Promise<{ enviadas: number; restantes: number }> {
   if (!navigator.onLine) return { enviadas: 0, restantes: await contarPendientes() }

@@ -12,6 +12,7 @@ import BitacoraEditor from '@/components/bitacora/BitacoraEditor'
 import HistorialEditor from '@/components/historial/HistorialEditor'
 import { leerCatalogos } from '@/lib/offline/db'
 import { codigoCorto } from '@/lib/format'
+import ParcelaBuscador from '@/components/ParcelaBuscador'
 import type { ParcelaLite } from '@/lib/types'
 
 type Vista = 'menu' | 'ficha' | 'bitacora' | 'historial'
@@ -174,26 +175,17 @@ function HistorialOffline() {
       <label className="mb-1 block text-sm font-medium text-slate-700">
         Elige la parcela
       </label>
-      <select
-        defaultValue=""
-        onChange={(e) => {
-          const p = est.parcelas.find((x) => x.id === e.target.value)
+      <ParcelaBuscador
+        parcelas={est.parcelas}
+        value=""
+        onChange={(id) => {
+          const p = est.parcelas.find((x) => x.id === id)
           if (p) setParcela(p)
         }}
-        className="w-full rounded-md border border-slate-200 px-2.5 py-2 text-sm outline-none focus:border-orange-400"
-      >
-        <option value="" disabled>
-          Selecciona…
-        </option>
-        {est.parcelas.map((p) => {
-          const cod = codigoCorto(p.codigo_parcela, p.nombre)
-          return (
-            <option key={p.id} value={p.id}>
-              {p.nombre || cod} · {cod}
-            </option>
-          )
-        })}
-      </select>
+      />
+      <p className="mt-2 text-xs text-slate-400">
+        {est.parcelas.length} parcelas descargadas en este dispositivo.
+      </p>
     </div>
   )
 }
