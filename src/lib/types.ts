@@ -174,6 +174,7 @@ export type CampoTipo =
   | 'longtext'
   | 'number'
   | 'date'
+  | 'time' // hora (inicio/término de la inspección)
   | 'signature'
   | 'bool'
   | 'tabla' // filas repetibles (ver config.columnas)

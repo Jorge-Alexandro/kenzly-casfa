@@ -386,7 +386,8 @@ function DynamicField({
   value: unknown
   onChange: (v: unknown) => void
 }) {
-  const short = campo.tipo === 'enum' || campo.tipo === 'number' || campo.tipo === 'date'
+  const short =
+    campo.tipo === 'enum' || campo.tipo === 'number' || campo.tipo === 'date' || campo.tipo === 'time'
   const base = `${short ? 'w-full max-w-xs' : 'w-full'} rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400`
   const str = (value as string) ?? ''
   const esAutofill = !!campo.config?.autofill
@@ -451,6 +452,9 @@ function DynamicField({
       )}
       {campo.tipo === 'date' && (
         <input type="date" value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
+      )}
+      {campo.tipo === 'time' && (
+        <input type="time" value={str} onChange={(e) => onChange(e.target.value || null)} className={base} />
       )}
       {campo.tipo === 'signature' && (
         <SignaturePad value={str || null} onChange={(v) => onChange(v)} />

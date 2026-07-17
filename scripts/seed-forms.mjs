@@ -42,6 +42,15 @@ const VIVERO_COLS = [
   { id: 'variedad', label: 'Variedad', tipo: 'text' },
   { id: 'cantidad', label: 'Cantidad de plantas', tipo: 'number' },
 ]
+// Árabe reporta la producción POR variedad (CHESPAL): columna extra en la tabla.
+const VARIEDADES_COLS_ARABE = [
+  ...VARIEDADES_COLS,
+  { id: 'produccion_qq', label: 'Producción (qq)', tipo: 'number' },
+]
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
 
 // Helper: define un campo. tipo: enum|text|longtext|number|date|signature|tabla
 // config (opcional): { condicion, columnas, autofill, opcion_otro }
@@ -56,6 +65,22 @@ const f = (nombre_interno, etiqueta, tipo = 'enum', opciones = SINO, config = {}
 // Helpers para legibilidad de los nuevos requisitos del SIC:
 const mostrarSi = (campo, igual = 'Sí') => ({ condicion: { campo, igual } })
 const enumOtro = ['Otro'] // se concatena a las opciones; activa opcion_otro
+
+// Colindancias de la parcela (CHESPAL): con qué productor colinda por punto
+// cardinal y qué cultivo tiene (o si es montaña/río/peñasco). Alimenta el
+// mapa imprimible de la parcela.
+const COLINDANCIAS = [
+  f('colinda_norte', 'Colinda al NORTE con (productor y cultivo, o montaña/río/peñasco)', 'text'),
+  f('colinda_sur', 'Colinda al SUR con (productor y cultivo, o montaña/río/peñasco)', 'text'),
+  f('colinda_este', 'Colinda al ESTE con (productor y cultivo, o montaña/río/peñasco)', 'text'),
+  f('colinda_oeste', 'Colinda al OESTE con (productor y cultivo, o montaña/río/peñasco)', 'text'),
+]
+
+// Horas de la inspección (CHESPAL): inicio y término, al frente de la ficha.
+const HORAS_INSPECCION = [
+  f('hora_inicio', 'Hora de inicio', 'time'),
+  f('hora_fin', 'Hora de término', 'time'),
+]
 
 // Sección "Estimación de cosecha" (feedback MAYACERT): café (bandolas) y cacao
 // (mazorcas). La captura y el cálculo EN VIVO los hace un componente propio en
@@ -86,6 +111,7 @@ const ROBUSTA = {
     {
       nombre: '2. Información de la parcela',
       campos: [
+        ...HORAS_INSPECCION,
         f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
         f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior' }),
         f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual' }),
@@ -96,6 +122,7 @@ const ROBUSTA = {
       nombre: '3. Producción de plantas y renovación de café',
       campos: [
         f('tiene_vivero', '¿Cuenta con vivero de café?'),
+        f('variedad_vivero', 'Variedad y cantidad de plantas del vivero', 'tabla', null, { columnas: VIVERO_COLS, ...mostrarSi('tiene_vivero') }),
         f('mismo_cafetal', '¿Las semillas y plántulas de café se obtienen en el mismo cafetal?'),
         f('sombra_mismo_cafetal', '¿Los árboles de sombra se obtienen en el mismo cafetal?'),
         f('insumos_quimicos', '¿Uso de insumos químicos en semilleros y viveros?'),
@@ -109,6 +136,7 @@ const ROBUSTA = {
           'Renovación de cafetos y sombra: ¿el productor mantiene su cafetal en condiciones de producción aceptables replantando/reponiendo sistemáticamente cafetos viejos e improductivos?',
         ),
         f('resiembra', 'Resiembra: cafetos sembrados este año', 'number', null, mostrarSi('renovacion')),
+        f('resiembra_variedades', 'Resiembra: variedad y cantidad de plantas', 'tabla', null, { columnas: VIVERO_COLS, ...mostrarSi('renovacion') }),
         f(
           'inga',
           '¿Se siembran árboles o leguminosa (Inga) a lo largo de las plantaciones de café de modo que contribuyen a la fertilidad del suelo, a la protección contra la erosión, u otras funciones afines?',
@@ -127,7 +155,7 @@ const ROBUSTA = {
     {
       nombre: '4. Manejo de sombra y diversificación',
       campos: [
-        f('densidad_sombra', 'Densidad de sombra / cobertura', 'enum', ['Excesiva', 'Regular', 'Falta sombra']),
+        f('densidad_sombra', 'Densidad de sombra / cobertura', 'enum', ['Mucha', 'Poca', 'Casi nada', 'Nada']),
         f('especies_sombra', 'Especie de sombra dominante', 'text'),
         f('numero_estratos', 'Número de estratos', 'enum', ['Uno', 'Dos', 'Tres']),
         f('manejo_sombra', 'Manejo de la sombra', 'enum', [
@@ -204,13 +232,15 @@ const ROBUSTA = {
       nombre: '7. Control de hierbas, plagas y enfermedades',
       campos: [
         f('deshierbe', '¿Cuántos deshierbes se realizan por año?', 'number'),
+        f('meses_deshierbe', '¿En qué meses (aproximadamente) realiza los deshierbes?', 'enum', MESES, { multiple: true }),
         f(
           'evidencia_ins_quim',
           '¿Encontró evidencias de uso de insumos químicos (herbicidas, insecticidas, fungicidas) para el control de hierbas, enfermedades, insectos o plagas en el cafetal (p.ej. aplicación de químicos contra broca u hormigas)?',
         ),
         f('prob_severo', '¿Hay algún problema severo de ataque de plagas o enfermedades?'),
-        f('tipo_plagas', 'Tipo de plagas', 'enum', ['Roya', 'Broca', ...enumOtro], { multiple: true, opcion_otro: true }),
-        f('control_plagas', 'Métodos de combate', 'enum', ['Cultural', 'Químico'], { multiple: true }),
+        // Si no hay plagas, estas dos se ocultan (CHESPAL).
+        f('tipo_plagas', 'Tipo de plagas', 'enum', ['Roya', 'Broca', ...enumOtro], { multiple: true, opcion_otro: true, ...mostrarSi('prob_severo') }),
+        f('control_plagas', 'Métodos de combate', 'enum', ['Cultural', 'Químico'], { multiple: true, ...mostrarSi('prob_severo') }),
       ],
     },
     {
@@ -222,6 +252,10 @@ const ROBUSTA = {
           'areas_amortiguamento',
           'Existen áreas de amortiguamiento que evitan contaminación por parcelas convencionales vecinas.',
         ),
+        // Si hay área de amortiguamiento: distancia y especie sembrada (CHESPAL).
+        f('amortiguamiento_metros', '¿A cuántos metros de distancia está el área de amortiguamiento?', 'number', null, mostrarSi('areas_amortiguamento')),
+        f('amortiguamiento_especie', '¿Qué especie tiene sembrada en el área de amortiguamiento?', 'text', null, mostrarSi('areas_amortiguamento')),
+        ...COLINDANCIAS,
         f('basura_cafetal', '¿Existe en los cafetales presencia de basura doméstica y plásticos?'),
       ],
     },
@@ -294,7 +328,7 @@ const ROBUSTA = {
       nombre: '12. Bitácora',
       campos: [
         f('bitacora', '¿Cuenta con bitácora?'),
-        f('actividades', 'Describe las actividades realizadas en su parcela', 'longtext'),
+        f('actividades', 'Describe las actividades realizadas en su parcela', 'longtext', null, mostrarSi('bitacora')),
       ],
     },
     ESTIMACION_SECCION,
@@ -324,8 +358,10 @@ const ARABE = {
     {
       nombre: '2. Información de la parcela',
       campos: [
+        ...HORAS_INSPECCION,
         f('estatus_parcela', 'Estatus de la parcela', 'text'),
-        f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
+        // Árabe: producción POR variedad en la tabla (CHESPAL).
+        f('variedades', 'Variedades, marco de plantación y producción por variedad', 'tabla', null, { columnas: VARIEDADES_COLS_ARABE }),
         f('produccion_anterior_kg', 'Producción anterior cosechada (kg)', 'number', null, { autofill: 'produccion_anterior' }),
         f('produccion_actual_kg', 'Producción actual (kg)', 'number', null, { autofill: 'produccion_actual' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
@@ -349,6 +385,7 @@ const ARABE = {
           'Renovación de cafetos y sombra: ¿el productor mantiene su cafetal en condiciones de producción aceptables replantando/reponiendo sistemáticamente cafetos viejos e improductivos?',
         ),
         f('resiembra_anio', 'Resiembra: cafetos sembrados este año', 'number', null, mostrarSi('renovacion')),
+        f('resiembra_variedades', 'Resiembra: variedad y cantidad de plantas', 'tabla', null, { columnas: VIVERO_COLS, ...mostrarSi('renovacion') }),
         f(
           'leguminosas_arboles_suelo',
           '¿Se siembran árboles o leguminosa (Inga) a lo largo de las plantaciones de café de modo que contribuyen a la fertilidad del suelo, a la protección contra la erosión, u otras funciones afines?',
@@ -367,7 +404,7 @@ const ARABE = {
     {
       nombre: '4. Manejo de sombra y diversificación',
       campos: [
-        f('densidad_sombra', 'Densidad de sombra / cobertura', 'enum', ['Excesiva', 'Regular', 'Falta sombra']),
+        f('densidad_sombra', 'Densidad de sombra / cobertura', 'enum', ['Mucha', 'Poca', 'Casi nada', 'Nada']),
         f('especie_sombra_dominante', 'Especie de sombra dominante', 'text'),
         f('altura_dosel_m', 'Altura del dosel principal (mts)', 'number'),
         f('estratos', 'Número de estratos', 'enum', ['Uno', 'Dos', 'Tres']),
@@ -442,13 +479,15 @@ const ARABE = {
       nombre: '7. Control de hierbas, plagas y enfermedades',
       campos: [
         f('deshierbes_por_anio', '¿Cuántos deshierbes se realizan por año?', 'number'),
+        f('meses_deshierbe', '¿En qué meses (aproximadamente) realiza los deshierbes?', 'enum', MESES, { multiple: true }),
         f(
           'uso_insumos_quimicos',
           '¿Encontró evidencias de uso de insumos químicos (herbicidas, insecticidas, fungicidas) para el control de hierbas, enfermedades, insectos o plagas en el cafetal (p.ej. aplicación de químicos contra broca u hormigas)?',
         ),
         f('problema_severo_plagas', '¿Hay algún problema severo de ataque de plagas o enfermedades?'),
-        f('tipos_plaga', 'Tipo de plagas', 'enum', ['Roya', 'Broca', ...enumOtro], { multiple: true, opcion_otro: true }),
-        f('metodo_combate', 'Métodos de combate', 'enum', ['Cultural', 'Químico'], { multiple: true }),
+        // Si no hay plagas, estas dos se ocultan (CHESPAL).
+        f('tipos_plaga', 'Tipo de plagas', 'enum', ['Roya', 'Broca', ...enumOtro], { multiple: true, opcion_otro: true, ...mostrarSi('problema_severo_plagas') }),
+        f('metodo_combate', 'Métodos de combate', 'enum', ['Cultural', 'Químico'], { multiple: true, ...mostrarSi('problema_severo_plagas') }),
       ],
     },
     {
@@ -460,6 +499,10 @@ const ARABE = {
           'areas_amortiguamiento',
           'Existen áreas de amortiguamiento que evitan contaminación por parcelas convencionales vecinas.',
         ),
+        // Si hay área de amortiguamiento: distancia y especie sembrada (CHESPAL).
+        f('amortiguamiento_metros', '¿A cuántos metros de distancia está el área de amortiguamiento?', 'number', null, mostrarSi('areas_amortiguamiento')),
+        f('amortiguamiento_especie', '¿Qué especie tiene sembrada en el área de amortiguamiento?', 'text', null, mostrarSi('areas_amortiguamiento')),
+        ...COLINDANCIAS,
         f('basura_plastico_cafetales', '¿Existe en los cafetales presencia de basura doméstica y plásticos?'),
       ],
     },
@@ -533,7 +576,7 @@ const ARABE = {
       nombre: '12. Bitácora',
       campos: [
         f('cuenta_con_bitacora', '¿Cuenta con bitácora?'),
-        f('describe_actividades', 'Describe las actividades realizadas en su parcela', 'longtext'),
+        f('describe_actividades', 'Describe las actividades realizadas en su parcela', 'longtext', null, mostrarSi('cuenta_con_bitacora')),
         f('observaciones_generales', 'Observaciones y/o comentarios', 'longtext'),
       ],
     },
@@ -568,6 +611,7 @@ const TROPICALES = {
     {
       nombre: '2. Datos de ubicación de la unidad de producción',
       campos: [
+        ...HORAS_INSPECCION,
         f('estatus_parcela', 'Estatus de la(s) parcela(s)', 'text'),
         f('pendiente', 'Pendiente', 'text'),
         f('tipo_suelo', 'Tipo de suelo', 'text'),
@@ -702,7 +746,7 @@ const TROPICALES = {
       nombre: '10. Bitácora',
       campos: [
         f('cuenta_con_bitacora', '¿Cuenta con bitácora?'),
-        f('describe_actividades', 'Describe las actividades realizadas en su parcela', 'longtext'),
+        f('describe_actividades', 'Describe las actividades realizadas en su parcela', 'longtext', null, mostrarSi('cuenta_con_bitacora')),
         f('observaciones_comentarios', 'Observaciones y/o comentarios', 'longtext'),
       ],
     },

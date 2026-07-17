@@ -38,8 +38,14 @@ export default function SignaturePad({
   }, [value, modo])
 
   function pos(e: React.PointerEvent) {
-    const rect = canvasRef.current!.getBoundingClientRect()
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    // El canvas interno mide 400×120 pero el CSS lo estira a lo ancho de la
+    // pantalla: hay que escalar el puntero o el trazo sale desplazado/agrandado.
+    const canvas = canvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    }
   }
   function start(e: React.PointerEvent) {
     drawing.current = true
