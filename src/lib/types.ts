@@ -330,6 +330,8 @@ export interface FichaDetalle {
   template: FormTemplate | null
   // Bitácora vinculada a esta ficha (anexo), si existe.
   bitacora: { id: string; parcela_id: string; anio: number; datos: unknown } | null
+  // Historial de manejo de la parcela (anexo para impresión), si existe.
+  historial: { parcela_id: string; anios: { anio: number; datos: unknown }[] } | null
 }
 
 export const ESTADO_FICHA_LABEL: Record<EstadoFicha, string> = {

@@ -193,6 +193,23 @@ export async function getFichaDetalle(
     .eq('ficha_id', ficha.id)
     .maybeSingle()
 
+  // Historial de manejo de la parcela de la ficha (anexo para impresión).
+  let historial: { parcela_id: string; anios: { anio: number; datos: unknown }[] } | null = null
+  const parcelaFicha = parcelas[0]?.id
+  if (parcelaFicha) {
+    const { data: hist } = await supabase
+      .from('historial_manejo_anual')
+      .select('anio, datos')
+      .eq('parcela_id', parcelaFicha)
+      .order('anio')
+    if (hist && hist.length > 0) {
+      historial = {
+        parcela_id: parcelaFicha,
+        anios: hist.map((h) => ({ anio: h.anio as number, datos: h.datos })),
+      }
+    }
+  }
+
   return {
     ficha: {
       id: ficha.id,
@@ -216,6 +233,7 @@ export async function getFichaDetalle(
     bitacora: bita
       ? { id: bita.id, parcela_id: bita.parcela_id, anio: bita.anio, datos: bita.datos }
       : null,
+    historial,
   }
 }
 

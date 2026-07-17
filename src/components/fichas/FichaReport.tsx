@@ -8,6 +8,7 @@ import Link from 'next/link'
 import type { FichaDetalle, FormCampo, FormSeccion, RolMembresia } from '@/lib/types'
 import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL } from '@/lib/types'
 import { MESES, normalizarDatos, type BitacoraActividad } from '@/lib/bitacora'
+import { HISTORIAL_CAMPOS } from '@/lib/historial'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import FichaEstadoControl from './FichaEstadoControl'
 
@@ -41,19 +42,18 @@ export default function FichaReport({
           <FichaEstadoControl fichaId={ficha.id} estado={ficha.estado} rol={rol} />
         </div>
         <div className="flex items-center gap-2">
-          {data.bitacora ? (
+          <Link
+            href={data.bitacora ? `/bitacora/${data.bitacora.id}` : `/bitacora/nueva?ficha=${ficha.id}`}
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {data.bitacora ? 'Editar bitácora' : '+ Bitácora'}
+          </Link>
+          {parcelas[0] && (
             <Link
-              href={`/bitacora/${data.bitacora.id}`}
+              href={`/historial/${parcelas[0].id}`}
               className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Editar bitácora anexa
-            </Link>
-          ) : (
-            <Link
-              href={`/bitacora/nueva?ficha=${ficha.id}`}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              + Anexar bitácora
+              {data.historial ? 'Editar historial' : '+ Historial'}
             </Link>
           )}
           <button
@@ -215,7 +215,55 @@ export default function FichaReport({
         {data.bitacora && (
           <BitacoraAnexo datos={normalizarDatos(data.bitacora.datos as never)} anio={data.bitacora.anio} />
         )}
+
+        {/* Anexo: historial de manejo de la parcela */}
+        {data.historial && data.historial.anios.length > 0 && (
+          <HistorialAnexo anios={data.historial.anios} />
+        )}
       </div>
+    </div>
+  )
+}
+
+// Anexo de historial dentro del PDF de la ficha (campos × años).
+function HistorialAnexo({
+  anios,
+}: {
+  anios: { anio: number; datos: unknown }[]
+}) {
+  const cols = [...anios].sort((a, b) => a.anio - b.anio)
+  const val = (datos: unknown, id: string) => {
+    const d = (datos ?? {}) as Record<string, unknown>
+    const v = d[id]
+    return v === null || v === undefined || v === '' ? '—' : String(v)
+  }
+  return (
+    <div className="report-section mt-6 border-t-2 border-slate-300 pt-3">
+      <SectionTitle>Anexo · Historial de manejo</SectionTitle>
+      <table className="w-full border-collapse text-[9px]">
+        <thead>
+          <tr>
+            <th className="border border-slate-300 bg-slate-50 p-1 text-left">Manejo</th>
+            {cols.map((c) => (
+              <th key={c.anio} className="border border-slate-300 bg-slate-50 p-1 text-center">
+                {c.anio}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {HISTORIAL_CAMPOS.map((campo) => (
+            <tr key={campo.id}>
+              <td className="border border-slate-300 p-1 font-medium">{campo.label}</td>
+              {cols.map((c) => (
+                <td key={c.anio} className="border border-slate-300 p-1 text-center">
+                  {val(c.datos, campo.id)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
