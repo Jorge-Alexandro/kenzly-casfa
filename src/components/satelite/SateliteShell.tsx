@@ -15,6 +15,7 @@ import ParcelaSatList from './ParcelaSatList'
 import SatelitePanel from './SatelitePanel'
 import BotonActualizar from './BotonActualizar'
 import BotonEudr from './BotonEudr'
+import BotonBosque2020 from './BotonBosque2020'
 
 type Filtro = 'todas' | 'alertas' | 'sin_datos'
 
@@ -82,6 +83,10 @@ export default function SateliteShell({
         {puedeActualizar && (
           <>
             <BotonActualizar
+              parcelaIds={idsConPoligono}
+              onListo={() => router.refresh()}
+            />
+            <BotonBosque2020
               parcelaIds={idsConPoligono}
               onListo={() => router.refresh()}
             />

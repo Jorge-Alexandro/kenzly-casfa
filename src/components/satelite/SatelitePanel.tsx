@@ -91,9 +91,35 @@ export default function SatelitePanel({
           <p className="mt-1 text-xs text-slate-600">{ALERTA_DESCRIPCION[alerta]}</p>
         </div>
 
-        {/* EUDR: veredicto oficial (autoridad) + monitoreo NDVI (secundario) */}
-        {eudr && (eudr.estatus_oficial || eudr.clasificacion) && (
+        {/* EUDR: veredicto oficial (autoridad) + bosque 2020 + monitoreo NDVI */}
+        {eudr && (eudr.estatus_oficial || eudr.bosque2020_pct != null || eudr.clasificacion) && (
           <div className="mt-3 space-y-2">
+            {eudr.bosque2020_pct != null && (
+              <div
+                className="rounded-md border p-3"
+                style={{
+                  borderColor: eudr.bosque2020_pct >= 5 ? '#dc262655' : '#16a34a55',
+                  background: eudr.bosque2020_pct >= 5 ? '#dc26260f' : '#16a34a0f',
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Bosque 2020 UE (JRC)
+                  </span>
+                  <span
+                    className="text-sm font-bold"
+                    style={{ color: eudr.bosque2020_pct >= 50 ? '#dc2626' : eudr.bosque2020_pct >= 5 ? '#f59e0b' : '#16a34a' }}
+                  >
+                    {eudr.bosque2020_pct.toFixed(0)}% traslape
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {eudr.bosque2020_pct >= 5
+                    ? 'La parcela cae sobre bosque 2020 → riesgo potencial EUDR (requiere evidencia).'
+                    : 'No cae sobre bosque 2020.'}
+                </p>
+              </div>
+            )}
             {eudr.estatus_oficial && (
               <div
                 className="rounded-md border p-3"

@@ -22,6 +22,7 @@ export interface EudrRow {
   estatus_oficial: 'verificada' | 'deforestacion' | null
   fuente: string | null
   fecha_oficial: string | null
+  bosque2020_pct: number | null
   clasificacion: 'sin_cambio' | 'vigilar' | 'posible_perdida' | 'sin_datos' | null
   ndvi_2020: number | null
   ndvi_actual: number | null
@@ -31,12 +32,12 @@ export interface EudrRow {
   analizado_en: string | null
 }
 
-// Resultados EUDR por parcela (parcela_eudr): veredicto oficial + monitoreo NDVI.
+// Resultados EUDR por parcela (parcela_eudr): veredicto oficial + bosque 2020 + NDVI.
 export async function getEudr(): Promise<EudrRow[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('parcela_eudr')
-    .select('parcela_id, estatus_oficial, fuente, fecha_oficial, clasificacion, ndvi_2020, ndvi_actual, delta, min_post2020, fecha_min, analizado_en')
+    .select('parcela_id, estatus_oficial, fuente, fecha_oficial, bosque2020_pct, clasificacion, ndvi_2020, ndvi_actual, delta, min_post2020, fecha_min, analizado_en')
   if (error) throw new Error(`getEudr failed: ${error.message}`)
   return (data ?? []) as EudrRow[]
 }
