@@ -4,7 +4,7 @@
 // (salud de la vegetación) en vez de por estado de validación.
 import { redirect } from 'next/navigation'
 import { getSessionResult } from '@/lib/session'
-import { getParcelasSatelite, getPolygonsSatelite } from '@/lib/data/satelite'
+import { getParcelasSatelite, getPolygonsSatelite, getEudr } from '@/lib/data/satelite'
 import { calcularSatStats } from '@/lib/satelite/indices'
 import SateliteShell from '@/components/satelite/SateliteShell'
 import NoMembership from '@/components/geosic/NoMembership'
@@ -16,10 +16,12 @@ export default async function SatelitePage() {
   if (result.kind === 'no-auth') redirect('/login')
   if (result.kind === 'no-membership') return <NoMembership />
 
-  const [parcelas, poligonos] = await Promise.all([
+  const [parcelas, poligonos, eudrRows] = await Promise.all([
     getParcelasSatelite(),
     getPolygonsSatelite(),
+    getEudr(),
   ])
+  const eudr = Object.fromEntries(eudrRows.map((e) => [e.parcela_id, e]))
 
   // El mapa colorea por NDVI, así que el índice viaja DENTRO de las properties
   // del feature. -999 = sin medición (Mapbox no sabe interpolar sobre null).
@@ -47,6 +49,7 @@ export default async function SatelitePage() {
       parcelas={parcelas}
       polygons={polygons}
       stats={stats}
+      eudr={eudr}
     />
   )
 }

@@ -5,6 +5,8 @@
 // El histórico se pide bajo demanda (no viaja en el payload de la página).
 import { useEffect, useState } from 'react'
 import type { ParcelaSateliteRow, IndiceHistorial } from '@/lib/satelite/indices'
+import type { EudrRow } from '@/lib/data/satelite'
+import { EUDR_LABEL, EUDR_COLOR } from '@/lib/satelite/eudr'
 import {
   ALERTA_COLOR,
   ALERTA_LABEL,
@@ -16,9 +18,11 @@ import GraficaNdvi from './GraficaNdvi'
 
 export default function SatelitePanel({
   parcela,
+  eudr,
   onClose,
 }: {
   parcela: ParcelaSateliteRow
+  eudr: EudrRow | null
   onClose: () => void
 }) {
   const [historial, setHistorial] = useState<IndiceHistorial[] | null>(null)
@@ -86,6 +90,60 @@ export default function SatelitePanel({
           </div>
           <p className="mt-1 text-xs text-slate-600">{ALERTA_DESCRIPCION[alerta]}</p>
         </div>
+
+        {/* EUDR: veredicto oficial (autoridad) + monitoreo NDVI (secundario) */}
+        {eudr && (eudr.estatus_oficial || eudr.clasificacion) && (
+          <div className="mt-3 space-y-2">
+            {eudr.estatus_oficial && (
+              <div
+                className="rounded-md border p-3"
+                style={{
+                  borderColor: eudr.estatus_oficial === 'deforestacion' ? '#dc262655' : '#16a34a55',
+                  background: eudr.estatus_oficial === 'deforestacion' ? '#dc26260f' : '#16a34a0f',
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Estatus EUDR (oficial)
+                  </span>
+                  <span
+                    className="text-sm font-bold"
+                    style={{ color: eudr.estatus_oficial === 'deforestacion' ? '#dc2626' : '#16a34a' }}
+                  >
+                    {eudr.estatus_oficial === 'deforestacion' ? '❌ Deforestación' : '✅ Verificada'}
+                  </span>
+                </div>
+                {eudr.fuente && (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {eudr.fuente}
+                    {eudr.fecha_oficial ? ` · ${eudr.fecha_oficial}` : ''}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {eudr.clasificacion && eudr.clasificacion !== 'sin_datos' && (
+              <div className="rounded-md border border-slate-200 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Monitoreo cobertura (NDVI 2020→hoy)
+                  </span>
+                  <span className="text-xs font-bold" style={{ color: EUDR_COLOR[eudr.clasificacion] }}>
+                    {EUDR_LABEL[eudr.clasificacion]}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div><p className="text-slate-400">2020</p><p className="font-semibold tabular-nums text-slate-700">{eudr.ndvi_2020?.toFixed(2) ?? '—'}</p></div>
+                  <div><p className="text-slate-400">Actual</p><p className="font-semibold tabular-nums text-slate-700">{eudr.ndvi_actual?.toFixed(2) ?? '—'}</p></div>
+                  <div><p className="text-slate-400">Δ</p><p className="font-semibold tabular-nums text-slate-700">{eudr.delta != null ? (eudr.delta > 0 ? '+' : '') + eudr.delta.toFixed(2) : '—'}</p></div>
+                </div>
+                <p className="mt-2 text-[10px] leading-tight text-slate-400">
+                  Alerta por NDVI: detecta despejes a suelo desnudo, pero <strong>puede no ver</strong> conversión bosque→café de sombra. No sustituye el veredicto oficial.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {!parcela.tiene_poligono && (
           <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-500">

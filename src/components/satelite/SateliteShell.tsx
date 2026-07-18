@@ -7,12 +7,14 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { UserSession } from '@/lib/types'
 import type { ParcelaSateliteRow, SatStats } from '@/lib/satelite/indices'
+import type { EudrRow } from '@/lib/data/satelite'
 import AppHeader from '@/components/AppHeader'
 import SateliteMap from './SateliteMap'
 import SatStatsBar from './SatStatsBar'
 import ParcelaSatList from './ParcelaSatList'
 import SatelitePanel from './SatelitePanel'
 import BotonActualizar from './BotonActualizar'
+import BotonEudr from './BotonEudr'
 
 type Filtro = 'todas' | 'alertas' | 'sin_datos'
 
@@ -21,6 +23,7 @@ interface Props {
   parcelas: ParcelaSateliteRow[]
   polygons: GeoJSON.FeatureCollection<GeoJSON.Polygon>
   stats: SatStats
+  eudr: Record<string, EudrRow>
 }
 
 export default function SateliteShell({
@@ -28,6 +31,7 @@ export default function SateliteShell({
   parcelas,
   polygons,
   stats,
+  eudr,
 }: Props) {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -76,10 +80,16 @@ export default function SateliteShell({
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <AppHeader orgNombre={session.orgNombre} rol={session.rol}>
         {puedeActualizar && (
-          <BotonActualizar
-            parcelaIds={idsConPoligono}
-            onListo={() => router.refresh()}
-          />
+          <>
+            <BotonActualizar
+              parcelaIds={idsConPoligono}
+              onListo={() => router.refresh()}
+            />
+            <BotonEudr
+              parcelaIds={idsConPoligono}
+              onListo={() => router.refresh()}
+            />
+          </>
         )}
       </AppHeader>
 
@@ -144,7 +154,11 @@ export default function SateliteShell({
         </main>
 
         {selected && (
-          <SatelitePanel parcela={selected} onClose={() => setSelectedId(null)} />
+          <SatelitePanel
+            parcela={selected}
+            eudr={eudr[selected.id] ?? null}
+            onClose={() => setSelectedId(null)}
+          />
         )}
       </div>
     </div>
