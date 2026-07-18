@@ -22,17 +22,18 @@ export default function KmlUploadModal({
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
 
-  const opciones = parcelas
-    .filter((p) => {
-      const q = query.trim().toLowerCase()
-      if (!q) return true
-      return (
-        p.codigo_parcela.toLowerCase().includes(q) ||
-        (p.nombre ?? '').toLowerCase().includes(q) ||
-        p.productor_nombre.toLowerCase().includes(q)
-      )
-    })
-    .slice(0, 50)
+  const q = query.trim().toLowerCase()
+  const filtradas = parcelas.filter((p) => {
+    if (!q) return true
+    return (
+      p.codigo_parcela.toLowerCase().includes(q) ||
+      (p.nombre ?? '').toLowerCase().includes(q) ||
+      p.productor_nombre.toLowerCase().includes(q)
+    )
+  })
+  // Se muestran hasta 200 para no colgar el DOM; el buscador acota el resto.
+  const opciones = filtradas.slice(0, 200)
+  const seleccionada = parcelas.find((p) => p.id === parcelaId)
 
   async function submit() {
     if (!parcelaId) {
@@ -83,24 +84,57 @@ export default function KmlUploadModal({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Parcela
             </label>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filtrar parcelas…"
-              className="mb-2 w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-            />
-            <select
-              value={parcelaId}
-              onChange={(e) => setParcelaId(e.target.value)}
-              size={6}
-              className="w-full rounded-md border border-slate-200 p-1 text-sm outline-none focus:border-orange-400"
-            >
-              {opciones.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {(p.nombre || p.codigo_parcela) + ' · ' + p.productor_nombre}
-                </option>
-              ))}
-            </select>
+            {seleccionada && (
+              <div className="mb-2 flex items-center justify-between rounded-md border border-orange-300 bg-orange-50 px-2.5 py-1.5 text-sm">
+                <span className="min-w-0 truncate text-slate-800">
+                  <span className="font-medium">{seleccionada.nombre || seleccionada.codigo_parcela}</span>
+                  <span className="text-slate-500"> · {seleccionada.productor_nombre}</span>
+                </span>
+                <button
+                  onClick={() => setParcelaId('')}
+                  className="ml-2 shrink-0 text-xs text-slate-500 hover:text-red-600"
+                >
+                  cambiar
+                </button>
+              </div>
+            )}
+            {!seleccionada && (
+              <>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por parcela, código o productor…"
+                  className="mb-2 w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+                  autoFocus
+                />
+                <div className="max-h-56 overflow-y-auto rounded-md border border-slate-200">
+                  {opciones.length === 0 ? (
+                    <p className="p-3 text-center text-sm text-slate-400">Sin coincidencias.</p>
+                  ) : (
+                    opciones.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setParcelaId(p.id)}
+                        className="flex w-full items-center justify-between gap-2 border-b border-slate-50 px-2.5 py-2 text-left text-sm hover:bg-orange-50"
+                      >
+                        <span className="min-w-0 truncate">
+                          <span className="font-medium text-slate-800">{p.nombre || p.codigo_parcela}</span>
+                          <span className="block truncate text-xs text-slate-400">{p.productor_nombre}</span>
+                        </span>
+                        <span className="shrink-0 text-xs text-slate-400">
+                          {p.poligono_id ? '● con polígono' : ''}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                {filtradas.length > opciones.length && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Mostrando {opciones.length} de {filtradas.length}. Escribe para acotar.
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           <div>
