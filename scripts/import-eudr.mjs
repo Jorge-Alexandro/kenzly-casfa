@@ -60,17 +60,28 @@ function procesar(lista, estatus) {
     filas.push({ parcela_id: elegida.id, org_id: org.id, estatus_oficial: estatus, fuente: FUENTE, fecha_oficial: FECHA })
   }
 }
-procesar(defor, 'deforestacion')
+procesar(defor, 'deforestacion') // primero: tiene prioridad si hay choque
 procesar(verif, 'verificada')
 
-console.log(`\nEmparejadas: ${ok} | sin parcela: ${noMatch} | ambiguas: ${ambig}`)
-console.log('Deforestación mapeadas:', filas.filter((f) => f.estatus_oficial === 'deforestacion').length)
+// Dedupe por parcela_id (una parcela puede tener varios geojson): conserva la
+// primera vista, y deforestación gana sobre verificada.
+const porParcela = new Map()
+for (const f of filas) {
+  const prev = porParcela.get(f.parcela_id)
+  if (!prev || (f.estatus_oficial === 'deforestacion' && prev.estatus_oficial !== 'deforestacion')) {
+    porParcela.set(f.parcela_id, f)
+  }
+}
+const unicas = [...porParcela.values()]
+
+console.log(`\nEmparejadas: ${ok} | sin parcela: ${noMatch} | únicas: ${unicas.length}`)
+console.log('Deforestación:', unicas.filter((f) => f.estatus_oficial === 'deforestacion').length)
 
 if (!COMMIT) { console.log('\n(SIMULACIÓN) corre con --commit para escribir en parcela_eudr.'); process.exit(0) }
 
 let esc = 0
-for (let i = 0; i < filas.length; i += 200) {
-  const lote = filas.slice(i, i + 200)
+for (let i = 0; i < unicas.length; i += 200) {
+  const lote = unicas.slice(i, i + 200)
   const { error } = await admin.from('parcela_eudr').upsert(lote, { onConflict: 'parcela_id' })
   if (error) { console.log('ERROR lote', i, error.message); break }
   esc += lote.length
