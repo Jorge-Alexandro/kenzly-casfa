@@ -20,10 +20,15 @@ import {
   listarHistorialesPendientes,
   quitarHistorialPendiente,
   contarHistorialesPendientes,
+  encolarEdicion,
+  listarEdicionesPendientes,
+  quitarEdicionPendiente,
+  contarEdicionesPendientes,
   type FichaPendiente,
   type RemisionPendiente,
   type BitacoraPendiente,
   type HistorialPendiente,
+  type EdicionPendiente,
   type CatalogosCache,
 } from './db'
 
@@ -158,14 +163,48 @@ export async function enviarOEncolarHistorial(
   return { online: false }
 }
 
-// Suma de pendientes de las tres colas de captura (fichas + bitácoras + historiales).
+// --- Ediciones de productor/parcela: PATCH online o encolar offline ---
+function endpointEdicion(tipo: EdicionPendiente['tipo'], id: string) {
+  return tipo === 'productor' ? `/api/productores/${id}` : `/api/parcelas/${id}`
+}
+
+export async function enviarOEncolarEdicion(
+  tipo: EdicionPendiente['tipo'],
+  id: string,
+  cambios: Record<string, unknown>,
+  etiqueta: string,
+): Promise<{ online: boolean }> {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch(endpointEdicion(tipo, id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cambios),
+      })
+      if (res.ok) return { online: true }
+      const b = await res.json().catch(() => ({}))
+      throw new Error(b.error ?? `Error ${res.status}`)
+    } catch (e) {
+      if (e instanceof TypeError) {
+        await encolarEdicion({ local_id: uuid(), creada_en: Date.now(), tipo, id, cambios, etiqueta })
+        return { online: false }
+      }
+      throw e
+    }
+  }
+  await encolarEdicion({ local_id: uuid(), creada_en: Date.now(), tipo, id, cambios, etiqueta })
+  return { online: false }
+}
+
+// Suma de pendientes de todas las colas (fichas + bitácoras + historiales + ediciones).
 export async function contarPendientes(): Promise<number> {
-  const [f, b, h] = await Promise.all([
+  const [f, b, h, e] = await Promise.all([
     contarFichasPendientes(),
     contarBitacorasPendientes(),
     contarHistorialesPendientes(),
+    contarEdicionesPendientes(),
   ])
-  return f + b + h
+  return f + b + h + e
 }
 
 // Lista legible de TODO lo pendiente de subir (para "ver borradores pendientes").
@@ -237,6 +276,23 @@ export async function vaciarCola(): Promise<{ enviadas: number; restantes: numbe
       })
       if (res.ok) {
         await quitarHistorialPendiente(h.local_id)
+        enviadas++
+      }
+    } catch {
+      break
+    }
+  }
+
+  // Ediciones de productor/parcela
+  for (const e of await listarEdicionesPendientes()) {
+    try {
+      const res = await fetch(endpointEdicion(e.tipo, e.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(e.cambios),
+      })
+      if (res.ok) {
+        await quitarEdicionPendiente(e.local_id)
         enviadas++
       }
     } catch {

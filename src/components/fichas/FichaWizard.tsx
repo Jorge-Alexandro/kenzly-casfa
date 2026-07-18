@@ -24,6 +24,7 @@ import {
 } from '@/lib/types'
 import SignaturePad from './SignaturePad'
 import EstimacionFichaSection from './EstimacionFichaSection'
+import EditarDatosCampo from './EditarDatosCampo'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import { enviarOEncolar } from '@/lib/offline/sync'
 
@@ -877,6 +878,9 @@ function ProductorBanner({
           </div>
         </div>
       )}
+
+      {/* #F Corregir datos del productor/parcela en campo (offline) */}
+      <EditarDatosCampo productor={productor} parcelas={parcelas} />
     </section>
   )
 }

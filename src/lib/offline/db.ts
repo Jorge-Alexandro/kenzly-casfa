@@ -74,6 +74,16 @@ export interface HistorialPendiente {
   etiqueta: string
 }
 
+// Una edición de datos de catálogo (productor/parcela) capturada offline.
+export interface EdicionPendiente {
+  local_id: string
+  creada_en: number
+  tipo: 'productor' | 'parcela'
+  id: string // id del productor o parcela a actualizar
+  cambios: Record<string, unknown>
+  etiqueta: string
+}
+
 interface KenzlyDB extends DBSchema {
   catalogos: {
     key: string
@@ -95,10 +105,14 @@ interface KenzlyDB extends DBSchema {
     key: string
     value: HistorialPendiente
   }
+  ediciones: {
+    key: string
+    value: EdicionPendiente
+  }
 }
 
 const DB_NAME = 'kenzly-geosic'
-const DB_VERSION = 3
+const DB_VERSION = 4
 
 let dbPromise: Promise<IDBPDatabase<KenzlyDB>> | null = null
 
@@ -126,6 +140,9 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('historiales')) {
           db.createObjectStore('historiales', { keyPath: 'local_id' })
+        }
+        if (!db.objectStoreNames.contains('ediciones')) {
+          db.createObjectStore('ediciones', { keyPath: 'local_id' })
         }
       },
     })
@@ -216,6 +233,24 @@ export async function contarHistorialesPendientes(): Promise<number> {
 export async function quitarHistorialPendiente(localId: string) {
   const db = await getDB()
   await db.delete('historiales', localId)
+}
+
+// --- Ediciones pendientes (productor/parcela) ---
+export async function encolarEdicion(e: EdicionPendiente) {
+  const db = await getDB()
+  await db.put('ediciones', e)
+}
+export async function listarEdicionesPendientes(): Promise<EdicionPendiente[]> {
+  const db = await getDB()
+  return db.getAll('ediciones')
+}
+export async function contarEdicionesPendientes(): Promise<number> {
+  const db = await getDB()
+  return db.count('ediciones')
+}
+export async function quitarEdicionPendiente(localId: string) {
+  const db = await getDB()
+  await db.delete('ediciones', localId)
 }
 
 // --- Remisiones pendientes (captura en campo) ---

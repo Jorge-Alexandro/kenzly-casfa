@@ -13,12 +13,7 @@ export async function PATCH(
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
-  if (session.rol !== 'admin' && session.rol !== 'coordinador') {
-    return NextResponse.json(
-      { error: 'No tienes permiso para editar parcelas' },
-      { status: 403 },
-    )
-  }
+  // El SIC corrige datos de la parcela en campo (todos los roles), como el alta.
 
   const body = (await request.json().catch(() => null)) as ParcelaEdit | null
   if (!body) {
