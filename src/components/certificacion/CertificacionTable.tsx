@@ -8,7 +8,6 @@ import {
   NIVEL_LABEL,
   NIVEL_BADGE,
   TIPO_BAJA_LABEL,
-  siguienteNivel,
   type NivelCertificacion,
   type TipoBaja,
   type ProductorCert,
@@ -23,7 +22,6 @@ export default function CertificacionTable({
 }) {
   const [prods, setProds] = useState(productores)
   const [filtro, setFiltro] = useState('')
-  const [editando, setEditando] = useState<{ pid: string; anio: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const visibles = useMemo(() => {
@@ -38,7 +36,6 @@ export default function CertificacionTable({
 
   async function fijarNivel(pid: string, anio: number, nivel: NivelCertificacion) {
     setError(null)
-    setEditando(null)
     setProds((ps) =>
       ps.map((p) =>
         p.id === pid ? { ...p, estatus: { ...p.estatus, [anio]: { nivel, origen: 'ratificacion' } } } : p,
@@ -113,32 +110,23 @@ export default function CertificacionTable({
                 </td>
                 {anios.map((a) => {
                   const est = p.estatus[a]
-                  const editing = editando?.pid === p.id && editando?.anio === a
-                  const sugerido = a > 0 && p.estatus[a - 1] ? siguienteNivel(p.estatus[a - 1].nivel) : 't1'
                   return (
                     <td key={a} className="px-2 py-2 text-center">
-                      {editing ? (
-                        <select
-                          autoFocus
-                          defaultValue={est?.nivel ?? sugerido}
-                          onBlur={() => setEditando(null)}
-                          onChange={(e) => fijarNivel(p.id, a, e.target.value as NivelCertificacion)}
-                          className="rounded-md border border-slate-300 px-1 py-1 text-xs"
-                        >
-                          {NIVEL_ORDEN.map((n) => (
-                            <option key={n} value={n}>{NIVEL_LABEL[n]}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <button
-                          onClick={() => setEditando({ pid: p.id, anio: a })}
-                          className={`min-w-[3rem] rounded-full px-2 py-0.5 text-xs font-medium ${
-                            est ? NIVEL_BADGE[est.nivel] : 'bg-white text-slate-300 ring-1 ring-slate-200'
-                          }`}
-                        >
-                          {est ? NIVEL_LABEL[est.nivel] : '—'}
-                        </button>
-                      )}
+                      {/* Select directo: funciona en tablet (sin autoFocus/onBlur). */}
+                      <select
+                        value={est?.nivel ?? ''}
+                        onChange={(e) =>
+                          e.target.value && fijarNivel(p.id, a, e.target.value as NivelCertificacion)
+                        }
+                        className={`cursor-pointer rounded-full border-0 px-2 py-1 text-xs font-medium outline-none ${
+                          est ? NIVEL_BADGE[est.nivel] : 'bg-white text-slate-400 ring-1 ring-slate-200'
+                        }`}
+                      >
+                        <option value="">—</option>
+                        {NIVEL_ORDEN.map((n) => (
+                          <option key={n} value={n}>{NIVEL_LABEL[n]}</option>
+                        ))}
+                      </select>
                     </td>
                   )
                 })}

@@ -6,7 +6,8 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 import type { ContratoDetalle, ContratoConfig } from '@/lib/contratos/tipos'
 
 export interface ContratoImagenes {
-  sello?: string // logo/sello de CASFASA
+  membrete?: string // logo CASFASA para el encabezado
+  sello?: string // sello de aprobación (se estampa junto a la firma de CASFA)
   firmaVendedor?: string
   firmaComprador?: string // Adrián
 }
@@ -33,7 +34,7 @@ const s = StyleSheet.create({
   firmas: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 40 },
   firmaBox: { width: '44%', alignItems: 'center' },
   firmaImg: { height: 46, objectFit: 'contain', marginBottom: 2 },
-  selloImg: { position: 'absolute', width: 78, height: 56, objectFit: 'contain', opacity: 0.55, top: -14, right: -6 },
+  selloImg: { position: 'absolute', width: 96, height: 96, objectFit: 'contain', opacity: 0.6, top: -40, right: -10 },
   firmaLinea: { borderTopWidth: 1, borderTopColor: '#374151', width: '100%', marginTop: 6, paddingTop: 4, textAlign: 'center' },
   firmaNombre: { fontFamily: 'Helvetica-Bold', fontSize: 9, textAlign: 'center' },
   firmaRol: { fontSize: 8, color: '#6b7280', textAlign: 'center' },
@@ -121,7 +122,7 @@ export function ContratoPdf({
       <Page size="LETTER" style={s.page}>
         {/* Membrete */}
         <View style={s.header}>
-          {img.sello ? <Image style={s.logo} src={img.sello} /> : null}
+          {img.membrete ? <Image style={s.logo} src={img.membrete} /> : null}
           <View style={s.headerText}>
             <Text style={s.razon}>{razon}</Text>
             {config?.domicilio_fiscal ? <Text style={s.domicilio}>{config.domicilio_fiscal}</Text> : null}

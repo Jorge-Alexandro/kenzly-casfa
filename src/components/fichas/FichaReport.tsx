@@ -67,16 +67,18 @@ export default function FichaReport({
 
       {/* Printable sheet */}
       <div className="print-sheet mx-auto my-6 max-w-3xl bg-white p-10 text-[13px] leading-snug text-slate-800 shadow-sm">
-        {/* Header image: café for robusta/arabe, cultivo for tropicales */}
+        {/* Encabezado: Robusta = Flor de Pascuas; tropicales = cultivo; arábica = café */}
         <header className="mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={
-              ficha.tipo === 'tropicales'
-                ? '/referencias/encabezado-cultivo.png'
-                : '/referencias/encabezado-cafe.png'
+              ficha.tipo === 'robusta'
+                ? '/referencias/encabezado-robusta.png'
+                : ficha.tipo === 'tropicales'
+                  ? '/referencias/encabezado-cultivo.png'
+                  : '/referencias/encabezado-cafe.png'
             }
-            alt="Encabezado CASFA"
+            alt={ficha.tipo === 'robusta' ? 'Encabezado Flor de Pascuas' : 'Encabezado CASFA'}
             className="mx-auto w-full max-w-2xl object-contain"
           />
           <h1 className="mt-3 text-center text-base font-bold uppercase text-slate-900">
@@ -199,7 +201,7 @@ export default function FichaReport({
               El productor declara que toda la información presentada
               anteriormente es correcta. Además, se compromete a cumplir con el
               Reglamento Interno de Producción Orgánica de{' '}
-              {ficha.tipo === 'tropicales' ? 'Flor de Pascuas' : 'CASFA'} y a
+              {ficha.tipo === 'tropicales' || ficha.tipo === 'robusta' ? 'Flor de Pascuas' : 'CASFA'} y a
               someterse a las indicaciones y condiciones establecidas por el
               Comité de Evaluación Interna y por las Agencias de Certificación.
             </p>

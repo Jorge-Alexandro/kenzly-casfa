@@ -49,6 +49,12 @@ export default async function MaquilaPage() {
         >
           ← Acopio
         </Link>
+        <a
+          href="/api/maquila/costo"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+        >
+          ↓ Costo de café (Excel)
+        </a>
         <Link
           href="/acopio/maquila/importar"
           className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-700"

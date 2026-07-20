@@ -41,13 +41,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const [contrato, config] = await Promise.all([getContrato(params.id), getConfig()])
   if (!contrato) return new Response('Contrato no encontrado', { status: 404 })
 
-  const [sello, firmaVendedor, firmaComprador] = await Promise.all([
-    logo('casfasa.png'),
+  const [membrete, sello, firmaVendedor, firmaComprador] = await Promise.all([
+    logo('casfasa.png'), // encabezado
+    logo('sello.png'), // sello de aprobación
     bajar(contrato.firma_vendedor_url),
     bajar(contrato.firma_comprador_url ?? config?.firma_representante_url ?? null),
   ])
 
-  const img: ContratoImagenes = { sello, firmaVendedor, firmaComprador }
+  const img: ContratoImagenes = { membrete, sello, firmaVendedor, firmaComprador }
   const pdf = await renderToBuffer(ContratoPdf({ contrato, config, img }))
 
   const slug = contrato.vendedor_nombre.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_').slice(0, 40)
