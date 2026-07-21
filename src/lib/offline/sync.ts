@@ -106,6 +106,23 @@ async function encolar(body: FichaPendiente['body'], etiqueta: string) {
   await encolarFicha({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
 }
 
+// Guarda los cambios de una ficha que YA existe en el servidor. Sin red se
+// encola como edición y se aplica sola al volver la señal (misma cola que las
+// ediciones de productor/parcela).
+export async function guardarEdicionFicha(
+  fichaId: string,
+  cambios: {
+    parcela_ids: string[]
+    fecha_inspeccion: string | null
+    respuestas: Record<string, unknown>
+    estado: string
+  },
+  etiqueta: string,
+): Promise<ResultadoEnvio> {
+  const r = await enviarOEncolarEdicion('ficha', fichaId, cambios, etiqueta)
+  return { online: r.online, fichaId }
+}
+
 // --- Bitácoras: mismo contrato que las fichas (online manda; offline encola) ---
 export async function enviarOEncolarBitacora(
   body: BitacoraPendiente['body'],
@@ -163,9 +180,11 @@ export async function enviarOEncolarHistorial(
   return { online: false }
 }
 
-// --- Ediciones de productor/parcela: PATCH online o encolar offline ---
+// --- Ediciones (productor/parcela/ficha): PATCH online o encolar offline ---
 function endpointEdicion(tipo: EdicionPendiente['tipo'], id: string) {
-  return tipo === 'productor' ? `/api/productores/${id}` : `/api/parcelas/${id}`
+  if (tipo === 'productor') return `/api/productores/${id}`
+  if (tipo === 'ficha') return `/api/fichas/${id}`
+  return `/api/parcelas/${id}`
 }
 
 export async function enviarOEncolarEdicion(
@@ -209,20 +228,22 @@ export async function contarPendientes(): Promise<number> {
 
 // Lista legible de TODO lo pendiente de subir (para "ver borradores pendientes").
 export interface PendienteResumen {
-  tipo: 'Ficha' | 'Bitácora' | 'Historial'
+  tipo: 'Ficha' | 'Bitácora' | 'Historial' | 'Edición'
   etiqueta: string
   creada_en: number
 }
 export async function listarTodosPendientes(): Promise<PendienteResumen[]> {
-  const [fichas, bitas, hists] = await Promise.all([
+  const [fichas, bitas, hists, edics] = await Promise.all([
     listarPendientes(),
     listarBitacorasPendientes(),
     listarHistorialesPendientes(),
+    listarEdicionesPendientes(),
   ])
   const items: PendienteResumen[] = [
     ...fichas.map((f) => ({ tipo: 'Ficha' as const, etiqueta: f.etiqueta, creada_en: f.creada_en })),
     ...bitas.map((b) => ({ tipo: 'Bitácora' as const, etiqueta: b.etiqueta, creada_en: b.creada_en })),
     ...hists.map((h) => ({ tipo: 'Historial' as const, etiqueta: h.etiqueta, creada_en: h.creada_en })),
+    ...edics.map((e) => ({ tipo: 'Edición' as const, etiqueta: e.etiqueta, creada_en: e.creada_en })),
   ]
   return items.sort((a, b) => b.creada_en - a.creada_en)
 }

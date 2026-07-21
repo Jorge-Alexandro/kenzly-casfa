@@ -24,6 +24,11 @@ interface Props {
   anioInicial: number
   datosIniciales?: BitacoraDatos
   fichaId?: string // si la bitácora es anexo de una ficha
+  /**
+   * Si viene, se llama al guardar en vez de navegar. Lo usa el panel de anexos
+   * de la ficha, donde salirse cortaría el flujo de la inspección.
+   */
+  onGuardada?: () => void
 }
 
 export default function BitacoraEditor({
@@ -33,6 +38,7 @@ export default function BitacoraEditor({
   anioInicial,
   datosIniciales,
   fichaId,
+  onGuardada,
 }: Props) {
   const router = useRouter()
   const [parcelaId, setParcelaId] = useState(parcelaFija?.id ?? '')
@@ -91,7 +97,10 @@ export default function BitacoraEditor({
         { parcela_id: parcelaId, anio, datos, ficha_id: fichaId ?? null },
         etiqueta,
       )
-      if (r.online && r.id) {
+      if (onGuardada) {
+        if (!r.online) setGuardadaOffline(true)
+        onGuardada()
+      } else if (r.online && r.id) {
         router.push(`/bitacora/${r.id}`)
         router.refresh()
       } else {

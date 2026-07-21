@@ -6,7 +6,7 @@
 //   3. Parcelas del productor (multi-select + suma de superficie)
 //   4. Formulario dinamico (secciones/campos del template)
 // Saves via POST /api/fichas.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type {
   FormTemplate,
@@ -25,33 +25,78 @@ import {
 import SignaturePad from './SignaturePad'
 import EstimacionFichaSection from './EstimacionFichaSection'
 import EditarDatosCampo from './EditarDatosCampo'
+import FichaAnexos from './FichaAnexos'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
-import { enviarOEncolar } from '@/lib/offline/sync'
+import { enviarOEncolar, guardarEdicionFicha } from '@/lib/offline/sync'
+import { guardarBorrador, leerBorrador, borrarBorrador } from '@/lib/offline/db'
 
 // Las respuestas pueden ser escalares o filas de tabla (variedades, etc.).
 type FilaTabla = Record<string, string | number | null>
 type Respuestas = Record<string, unknown>
 
+// Ficha existente que se está reabriendo para corregir (#1).
+export interface FichaEnEdicion {
+  id: string
+  tipo: TipoFicha
+  template_id: string | null
+  productor_id: string
+  parcela_ids: string[]
+  fecha_inspeccion: string | null
+  respuestas: Respuestas
+  estado: string
+}
+
 export default function FichaWizard({
   templates,
   productores,
   parcelas,
+  fichaEdicion,
 }: {
   templates: FormTemplate[]
   productores: ProductorLite[]
   parcelas: ParcelaLite[]
+  /** Si viene, el wizard edita esa ficha en vez de crear una nueva. */
+  fichaEdicion?: FichaEnEdicion
 }) {
   const router = useRouter()
-  const [step, setStep] = useState(1)
-  const [tipo, setTipo] = useState<TipoFicha | null>(null)
-  const [productorId, setProductorId] = useState<string | null>(null)
-  const [parcelaIds, setParcelaIds] = useState<string[]>([])
-  const [respuestas, setRespuestas] = useState<Respuestas>({})
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
+  const editando = !!fichaEdicion
+  // Estado con el que se abre la pantalla: ficha existente o captura en blanco.
+  const [inicial] = useState(() => ({
+    tipo: (fichaEdicion?.tipo ?? null) as TipoFicha | null,
+    productorId: fichaEdicion?.productor_id ?? null,
+    parcelaIds: fichaEdicion?.parcela_ids ?? [],
+    respuestas: (fichaEdicion?.respuestas ?? {}) as Respuestas,
+    fecha: fichaEdicion?.fecha_inspeccion ?? new Date().toISOString().slice(0, 10),
+  }))
+  // Al editar se entra directo al formulario: tipo/productor ya están decididos.
+  const [step, setStep] = useState(editando ? 4 : 1)
+  const [tipo, setTipo] = useState<TipoFicha | null>(inicial.tipo)
+  const [productorId, setProductorId] = useState<string | null>(inicial.productorId)
+  const [parcelaIds, setParcelaIds] = useState<string[]>(inicial.parcelaIds)
+  const [respuestas, setRespuestas] = useState<Respuestas>(inicial.respuestas)
+  const [fecha, setFecha] = useState(inicial.fecha)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [guardadaOffline, setGuardadaOffline] = useState(false)
   const [prodQuery, setProdQuery] = useState('')
+  // Resultado del guardado: abre el panel de anexos en vez de salir (#4).
+  const [guardada, setGuardada] = useState<
+    { fichaId: string | null; online: boolean } | null
+  >(null)
+  // Autoguardado local (#3).
+  const claveBorrador = fichaEdicion ? `ficha:${fichaEdicion.id}` : 'nueva'
+  const [autoguardado, setAutoguardado] = useState<number | null>(null)
+  const [borradorRecuperado, setBorradorRecuperado] = useState(false)
+  const listoParaAutoguardar = useRef(false)
+  // Huella del estado con el que se abrió la pantalla: sirve para no escribir
+  // (ni anunciar) un borrador cuando en realidad nadie ha tocado nada.
+  const huella = (v: {
+    tipo: TipoFicha | null
+    productorId: string | null
+    parcelaIds: string[]
+    respuestas: Respuestas
+    fecha: string
+  }) => JSON.stringify([v.tipo, v.productorId, v.parcelaIds, v.fecha, v.respuestas])
+  const huellaInicial = useRef(huella(inicial))
 
   // The template that matches the chosen tipo (by cultivo).
   const template = useMemo(() => {
@@ -136,6 +181,71 @@ export default function FichaWizard({
 
   const productor = productores.find((p) => p.id === productorId)
 
+  // --- Autoguardado (#3) -----------------------------------------------------
+  // La tablet se apaga, se cierra la app, se va la batería a media inspección.
+  // Lo capturado vive en el dispositivo desde el primer campo; se borra solo
+  // cuando la ficha se guarda de verdad. No depende de la red.
+  // Al montar: recuperar lo que quedó a medias.
+  useEffect(() => {
+    let vivo = true
+    leerBorrador(claveBorrador)
+      .then((b) => {
+        if (!vivo || !b) return
+        // Si el borrador es idéntico a lo que ya se abrió (caso típico al
+        // reeditar una ficha sin cambiarla), no hay nada que recuperar.
+        const h = huella({
+          tipo: b.tipo as TipoFicha | null,
+          productorId: b.productor_id,
+          parcelaIds: b.parcela_ids,
+          respuestas: b.respuestas,
+          fecha: b.fecha,
+        })
+        if (h === huellaInicial.current) return
+        setTipo((b.tipo as TipoFicha) ?? null)
+        setProductorId(b.productor_id)
+        setParcelaIds(b.parcela_ids)
+        setRespuestas(b.respuestas)
+        setFecha(b.fecha)
+        setStep(b.step)
+        setBorradorRecuperado(true)
+      })
+      .finally(() => {
+        // Solo después de intentar recuperar se habilita el guardado, para no
+        // pisar el borrador con el estado vacío del primer render.
+        if (vivo) listoParaAutoguardar.current = true
+      })
+    return () => {
+      vivo = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Al escribir: guardar con un respiro de 1.2 s para no castigar la tablet.
+  useEffect(() => {
+    if (!listoParaAutoguardar.current) return
+    if (!tipo && !productorId && Object.keys(respuestas).length === 0) return
+    // Nada que guardar si sigue igual que como se abrió.
+    if (huella({ tipo, productorId, parcelaIds, respuestas, fecha }) === huellaInicial.current)
+      return
+    const t = setTimeout(() => {
+      guardarBorrador({
+        clave: claveBorrador,
+        guardado_en: Date.now(),
+        tipo,
+        productor_id: productorId,
+        parcela_ids: parcelaIds,
+        fecha,
+        respuestas,
+        step,
+        etiqueta: `${tipo ? TIPO_FICHA_LABEL[tipo] : 'Ficha'} · ${productor?.nombre_completo ?? 'sin productor'}`,
+      })
+        .then(() => setAutoguardado(Date.now()))
+        .catch(() => {})
+    }, 1200)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo, productorId, parcelaIds, respuestas, fecha, step])
+
   function setCampo(nombre: string, value: unknown) {
     setRespuestas((r) => ({ ...r, [nombre]: value }))
   }
@@ -151,28 +261,33 @@ export default function FichaWizard({
     setBusy(true)
     setError(null)
     try {
-      // Offline-aware: si hay red la sube; si no, la guarda en el dispositivo
+      const etiqueta = `${TIPO_FICHA_LABEL[tipo]} · ${productor?.nombre_completo ?? ''}`
+      // Offline-aware: si hay red se sube; si no, se guarda en el dispositivo
       // y se sincroniza sola al volver la conexión.
-      const r = await enviarOEncolar(
-        {
-          tipo,
-          template_id: template?.id ?? null,
-          productor_id: productorId,
-          parcela_ids: parcelaIds,
-          fecha_inspeccion: fecha,
-          respuestas,
-          estado,
-        },
-        `${TIPO_FICHA_LABEL[tipo]} · ${productor?.nombre_completo ?? ''}`,
-      )
-      if (r.online) {
-        router.push('/fichas')
-        router.refresh()
-      } else {
-        // Guardada offline: avisa y vuelve a la lista de fichas.
-        setGuardadaOffline(true)
-        setTimeout(() => router.push('/fichas'), 1500)
-      }
+      const r = fichaEdicion
+        ? await guardarEdicionFicha(
+            fichaEdicion.id,
+            { parcela_ids: parcelaIds, fecha_inspeccion: fecha, respuestas, estado },
+            `${etiqueta} (corrección)`,
+          )
+        : await enviarOEncolar(
+            {
+              tipo,
+              template_id: template?.id ?? null,
+              productor_id: productorId,
+              parcela_ids: parcelaIds,
+              fecha_inspeccion: fecha,
+              respuestas,
+              estado,
+            },
+            etiqueta,
+          )
+      // Ya está a salvo (en el servidor o en la cola): el borrador sobra.
+      await borrarBorrador(claveBorrador).catch(() => {})
+      // No se sale de la ficha: se abre el panel para anexar bitácora e
+      // historial de la MISMA inspección, que es como se levanta en campo (#4).
+      setGuardada({ fichaId: r.fichaId ?? fichaEdicion?.id ?? null, online: r.online })
+      if (r.online) router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar')
     } finally {
@@ -180,9 +295,48 @@ export default function FichaWizard({
     }
   }
 
+  // Panel posterior al guardado: anexos + salidas. Se muestra en lugar del
+  // formulario para que quede claro que la ficha ya está guardada.
+  if (guardada && tipo && productorId) {
+    return (
+      <FichaAnexos
+        online={guardada.online}
+        fichaId={guardada.fichaId}
+        editada={editando}
+        parcelas={parcelasSeleccionadas}
+        etiquetaProductor={productor?.nombre_completo ?? ''}
+        onSeguirEditando={() => setGuardada(null)}
+      />
+    )
+  }
+
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <Steps step={step} />
+      {editando ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5">
+          <span className="text-sm font-medium text-sky-800">
+            Editando una ficha ya guardada
+          </span>
+          <AvisoAutoguardado en={autoguardado} />
+        </div>
+      ) : (
+        <Steps step={step} />
+      )}
+
+      {borradorRecuperado && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <span>Recuperamos lo que habías capturado en este dispositivo.</span>
+          <button
+            onClick={async () => {
+              await borrarBorrador(claveBorrador).catch(() => {})
+              location.reload()
+            }}
+            className="rounded-md border border-amber-300 px-2.5 py-1 text-xs font-medium hover:bg-amber-100"
+          >
+            Descartar y empezar de cero
+          </button>
+        </div>
+      )}
 
       {/* STEP 1: tipo */}
       {step === 1 && (
@@ -420,20 +574,18 @@ export default function FichaWizard({
               {error}
             </p>
           )}
-          {guardadaOffline && (
-            <p className="mb-3 rounded-md bg-amber-50 p-2 text-sm text-amber-700">
-              Sin conexión: la ficha se guardó en el dispositivo y se subirá
-              automáticamente al recuperar señal.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setStep(3)}
-              className="rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
-            >
-              ← Atrás
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {editando ? (
+              <AvisoAutoguardado en={autoguardado} />
+            ) : (
+              <button
+                onClick={() => setStep(3)}
+                className="rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+              >
+                ← Atrás
+              </button>
+            )}
             <div className="flex gap-2">
               <button
                 disabled={busy}
@@ -447,13 +599,33 @@ export default function FichaWizard({
                 onClick={() => guardar('en_revision')}
                 className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
               >
-                {busy ? 'Guardando…' : 'Enviar a revisión'}
+                {busy ? 'Guardando…' : editando ? 'Guardar cambios' : 'Enviar a revisión'}
               </button>
             </div>
           </div>
+          {!editando && (
+            <div className="mt-3 flex justify-end">
+              <AvisoAutoguardado en={autoguardado} />
+            </div>
+          )}
         </div>
       )}
     </div>
+  )
+}
+
+// Marca de agua del autoguardado: el inspector necesita ver que lo suyo ya
+// está a salvo en la tablet, aunque no haya señal para subirlo.
+function AvisoAutoguardado({ en }: { en: number | null }) {
+  if (!en) return <span className="text-xs text-slate-400">Autoguardado activo</span>
+  const hora = new Date(en).toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return (
+    <span className="text-xs text-green-700">
+      ✓ Guardado en este dispositivo · {hora}
+    </span>
   )
 }
 

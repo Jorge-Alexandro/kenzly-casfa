@@ -314,6 +314,7 @@ export interface FichaDetalle {
     created_at: string
     respuestas: Record<string, unknown>
   }
+  productor_id: string
   productor: {
     nombre_completo: string
     codigo: string

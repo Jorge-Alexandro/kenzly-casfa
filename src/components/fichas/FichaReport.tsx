@@ -42,6 +42,14 @@ export default function FichaReport({
           <FichaEstadoControl fichaId={ficha.id} estado={ficha.estado} rol={rol} />
         </div>
         <div className="flex items-center gap-2">
+          {rol !== 'solo_lectura' && (
+            <Link
+              href={`/fichas/${ficha.id}/editar`}
+              className="rounded-md border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100"
+            >
+              Editar ficha
+            </Link>
+          )}
           <Link
             href={data.bitacora ? `/bitacora/${data.bitacora.id}` : `/bitacora/nueva?ficha=${ficha.id}`}
             className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"

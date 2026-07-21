@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { obtenerCatalogos } from '@/lib/offline/sync'
 import type { FormTemplate, ProductorLite, ParcelaLite } from '@/lib/types'
-import FichaWizard from './FichaWizard'
+import FichaWizard, { type FichaEnEdicion } from './FichaWizard'
 
 type Estado =
   | { fase: 'cargando' }
@@ -15,7 +15,12 @@ type Estado =
   | { fase: 'sin_datos' }
   | { fase: 'error'; mensaje: string }
 
-export default function FichaCaptureClient() {
+export default function FichaCaptureClient({
+  fichaEdicion,
+}: {
+  /** Si viene, en vez de capturar una ficha nueva se reabre esta para corregir. */
+  fichaEdicion?: FichaEnEdicion
+} = {}) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' })
 
   async function cargar() {
@@ -93,6 +98,7 @@ export default function FichaCaptureClient() {
         templates={estado.templates}
         productores={estado.productores}
         parcelas={estado.parcelas}
+        fichaEdicion={fichaEdicion}
       />
     </>
   )

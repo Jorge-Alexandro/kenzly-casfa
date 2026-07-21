@@ -19,10 +19,13 @@ export default function HistorialEditor({
   parcelaId,
   parcelaLabel,
   aniosIniciales,
+  onGuardado,
 }: {
   parcelaId: string
   parcelaLabel: string
   aniosIniciales: HistorialAnio[]
+  /** Si viene, se avisa al guardar (panel de anexos de la ficha). */
+  onGuardado?: () => void
 }) {
   const router = useRouter()
   const [anios, setAnios] = useState<HistorialAnio[]>(
@@ -78,6 +81,7 @@ export default function HistorialEditor({
       } else {
         setGuardadaOffline(true)
       }
+      onGuardado?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar')
     } finally {

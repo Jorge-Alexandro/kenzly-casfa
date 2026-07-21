@@ -94,7 +94,15 @@ export default async function FichasPage() {
                           {ESTADO_FICHA_LABEL[f.estado]}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-right">
+                        {result.session.rol !== 'solo_lectura' && (
+                          <Link
+                            href={`/fichas/${f.id}/editar`}
+                            className="mr-3 text-sm font-medium text-slate-500 hover:text-slate-700"
+                          >
+                            Editar
+                          </Link>
+                        )}
                         <Link
                           href={`/fichas/${f.id}`}
                           className="text-sm font-medium text-orange-600 hover:text-orange-700"

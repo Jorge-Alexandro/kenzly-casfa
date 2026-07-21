@@ -74,13 +74,30 @@ export interface HistorialPendiente {
   etiqueta: string
 }
 
-// Una edición de datos de catálogo (productor/parcela) capturada offline.
+// Una edición capturada offline: datos de catálogo (productor/parcela) o los
+// cambios a una ficha que ya existe en el servidor.
 export interface EdicionPendiente {
   local_id: string
   creada_en: number
-  tipo: 'productor' | 'parcela'
-  id: string // id del productor o parcela a actualizar
+  tipo: 'productor' | 'parcela' | 'ficha'
+  id: string // id del registro a actualizar
   cambios: Record<string, unknown>
+  etiqueta: string
+}
+
+// Borrador de captura en curso (autoguardado). NO es una ficha pendiente de
+// subir: es lo que el inspector lleva escrito para que no se pierda si la
+// tablet se apaga o se cierra la app a media inspección. Se borra al guardar.
+export interface BorradorFicha {
+  /** 'nueva' para una ficha nueva, `ficha:<id>` al editar una existente. */
+  clave: string
+  guardado_en: number
+  tipo: string | null
+  productor_id: string | null
+  parcela_ids: string[]
+  fecha: string
+  respuestas: Record<string, unknown>
+  step: number
   etiqueta: string
 }
 
@@ -109,10 +126,14 @@ interface KenzlyDB extends DBSchema {
     key: string
     value: EdicionPendiente
   }
+  borradores: {
+    key: string
+    value: BorradorFicha
+  }
 }
 
 const DB_NAME = 'kenzly-geosic'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 let dbPromise: Promise<IDBPDatabase<KenzlyDB>> | null = null
 
@@ -143,6 +164,9 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('ediciones')) {
           db.createObjectStore('ediciones', { keyPath: 'local_id' })
+        }
+        if (!db.objectStoreNames.contains('borradores')) {
+          db.createObjectStore('borradores', { keyPath: 'clave' })
         }
       },
     })
@@ -251,6 +275,24 @@ export async function contarEdicionesPendientes(): Promise<number> {
 export async function quitarEdicionPendiente(localId: string) {
   const db = await getDB()
   await db.delete('ediciones', localId)
+}
+
+// --- Borradores en curso (autoguardado) ---
+export async function guardarBorrador(b: BorradorFicha) {
+  const db = await getDB()
+  await db.put('borradores', b)
+}
+export async function leerBorrador(clave: string): Promise<BorradorFicha | null> {
+  const db = await getDB()
+  return (await db.get('borradores', clave)) ?? null
+}
+export async function borrarBorrador(clave: string) {
+  const db = await getDB()
+  await db.delete('borradores', clave)
+}
+export async function listarBorradores(): Promise<BorradorFicha[]> {
+  const db = await getDB()
+  return db.getAll('borradores')
 }
 
 // --- Remisiones pendientes (captura en campo) ---
