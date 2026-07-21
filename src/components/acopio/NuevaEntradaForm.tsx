@@ -17,6 +17,8 @@ export default function NuevaEntradaForm({
 }) {
   const router = useRouter()
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
+  // Padrón de proveedores de acopio en estado, para poder dar de alta nuevos.
+  const [provs, setProvs] = useState<ProductorLite[]>(productores)
   const [productorId, setProductorId] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [especie, setEspecie] = useState('')
@@ -24,6 +26,33 @@ export default function NuevaEntradaForm({
   const [comentarios, setComentarios] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Alta de nuevo proveedor.
+  const [altaAbierta, setAltaAbierta] = useState(false)
+  const [nuevo, setNuevo] = useState({ nombre: '', comunidad: '', municipio: '' })
+  const [creando, setCreando] = useState(false)
+
+  async function crearProveedor() {
+    if (!nuevo.nombre.trim()) return setError('Escribe el nombre del proveedor.')
+    setCreando(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/acopio/proveedores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevo),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo crear')
+      setProvs((ps) => [data.proveedor, ...ps.filter((p) => p.id !== data.proveedor.id)])
+      setProductorId(data.proveedor.id)
+      setAltaAbierta(false)
+      setNuevo({ nombre: '', comunidad: '', municipio: '' })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al crear proveedor')
+    } finally {
+      setCreando(false)
+    }
+  }
 
   const especies = useMemo(
     () => Array.from(new Set(catalogo.map((c) => c.especie))),
@@ -37,16 +66,12 @@ export default function NuevaEntradaForm({
   const proveedores = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
     const base = q
-      ? productores.filter(
-          (p) =>
-            p.nombre_completo.toLowerCase().includes(q) ||
-            p.codigo.toLowerCase().includes(q),
-        )
-      : productores
+      ? provs.filter((p) => p.nombre_completo.toLowerCase().includes(q))
+      : provs
     return base.slice(0, 50)
-  }, [productores, busqueda])
+  }, [provs, busqueda])
 
-  const proveedorSel = productores.find((p) => p.id === productorId) ?? null
+  const proveedorSel = provs.find((p) => p.id === productorId) ?? null
 
   async function guardar() {
     setError(null)
@@ -58,8 +83,11 @@ export default function NuevaEntradaForm({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productor_id: productorId,
+          // Proveedor del padrón de ACOPIO (no del padrón de certificación):
+          // se guarda por nombre/comunidad/municipio, sin productor_id.
           proveedor_nombre: proveedorSel.nombre_completo,
+          comunidad: proveedorSel.comunidad,
+          municipio: proveedorSel.municipio,
           especie,
           tipo,
           fecha_acopio: fecha,
@@ -100,10 +128,10 @@ export default function NuevaEntradaForm({
           />
         </Campo>
 
-        <Campo label="Proveedor (padrón)">
+        <Campo label="Proveedor (padrón de acopio)">
           <input
             type="text"
-            placeholder="Buscar por nombre o código…"
+            placeholder="Buscar proveedor por nombre…"
             value={busqueda}
             onChange={(e) => {
               setBusqueda(e.target.value)
@@ -119,7 +147,8 @@ export default function NuevaEntradaForm({
           >
             {proveedores.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.codigo} — {p.nombre_completo}
+                {p.nombre_completo}
+                {p.comunidad ? ` · ${p.comunidad}` : ''}
               </option>
             ))}
           </select>
@@ -128,6 +157,32 @@ export default function NuevaEntradaForm({
               {[proveedorSel.comunidad, proveedorSel.municipio].filter(Boolean).join(' · ') ||
                 'Sin comunidad/municipio en el padrón'}
             </p>
+          )}
+
+          {/* Alta de nuevo proveedor (no está en el padrón de acopio) */}
+          {!altaAbierta ? (
+            <button
+              type="button"
+              onClick={() => setAltaAbierta(true)}
+              className="mt-2 text-xs font-medium text-orange-700 hover:underline"
+            >
+              + Nuevo proveedor
+            </button>
+          ) : (
+            <div className="mt-2 rounded-md border border-orange-200 bg-orange-50/50 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Nuevo proveedor de acopio
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <input placeholder="Nombre *" value={nuevo.nombre} onChange={(e) => setNuevo((n) => ({ ...n, nombre: e.target.value }))} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm sm:col-span-3" />
+                <input placeholder="Comunidad" value={nuevo.comunidad} onChange={(e) => setNuevo((n) => ({ ...n, comunidad: e.target.value }))} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm" />
+                <input placeholder="Municipio" value={nuevo.municipio} onChange={(e) => setNuevo((n) => ({ ...n, municipio: e.target.value }))} className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm" />
+                <button type="button" onClick={crearProveedor} disabled={creando} className="rounded-md bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50">
+                  {creando ? 'Guardando…' : 'Agregar y seleccionar'}
+                </button>
+              </div>
+              <button type="button" onClick={() => setAltaAbierta(false)} className="mt-2 text-xs text-slate-500 hover:text-slate-700">Cancelar</button>
+            </div>
           )}
         </Campo>
 

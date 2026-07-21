@@ -96,3 +96,23 @@ export async function getProductoresLite(): Promise<ProductorLite[]> {
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as ProductorLite[]
 }
+
+// Padrón PROPIO del acopio (proveedores), independiente del padrón de
+// certificación. Se devuelve con la forma ProductorLite para reusar el picker.
+export async function getAcopioProveedores(): Promise<ProductorLite[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('acopio_proveedor')
+    .select('id, nombre, comunidad, municipio')
+    .eq('activo', true)
+    .order('nombre', { ascending: true })
+    .limit(5000)
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    codigo: '',
+    nombre_completo: p.nombre as string,
+    comunidad: (p.comunidad ?? null) as string | null,
+    municipio: (p.municipio ?? null) as string | null,
+  }))
+}

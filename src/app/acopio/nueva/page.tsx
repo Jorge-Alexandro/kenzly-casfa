@@ -1,7 +1,7 @@
 // Módulo 4 — Acopio: alta de entrada (Server Component que carga catálogos).
 import { redirect } from 'next/navigation'
 import { getSessionResult } from '@/lib/session'
-import { getProductosCatalogo, getProductoresLite } from '@/lib/data/acopio'
+import { getProductosCatalogo, getAcopioProveedores } from '@/lib/data/acopio'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import NuevaEntradaForm from '@/components/acopio/NuevaEntradaForm'
@@ -15,7 +15,7 @@ export default async function NuevaEntradaPage() {
 
   const [catalogo, productores] = await Promise.all([
     getProductosCatalogo(),
-    getProductoresLite(),
+    getAcopioProveedores(),
   ])
 
   return (
