@@ -42,11 +42,14 @@ const VIVERO_COLS = [
   { id: 'variedad', label: 'Variedad', tipo: 'text' },
   { id: 'cantidad', label: 'Cantidad de plantas', tipo: 'number' },
 ]
-// Árabe reporta la producción POR variedad (CHESPAL): columna extra en la tabla.
-const VARIEDADES_COLS_ARABE = [
+// Producción POR variedad (CHESPAL): si el inspector captura varias variedades,
+// cada una lleva su producción anterior y actual en la misma tabla.
+const VARIEDADES_COLS_PROD = [
   ...VARIEDADES_COLS,
-  { id: 'produccion_qq', label: 'Producción (qq)', tipo: 'number' },
+  { id: 'prod_anterior_qq', label: 'Prod. anterior (qq)', tipo: 'number' },
+  { id: 'prod_actual_qq', label: 'Prod. actual (qq)', tipo: 'number' },
 ]
+const VARIEDADES_COLS_ARABE = VARIEDADES_COLS_PROD
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -111,7 +114,7 @@ const ROBUSTA = {
     {
       nombre: '2. Información de la parcela',
       campos: [
-        f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
+        f('variedades', 'Variedades, marco de plantación y producción por variedad', 'tabla', null, { columnas: VARIEDADES_COLS_PROD }),
         f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior', convertidor: 'qq' }),
         f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual', convertidor: 'qq' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),

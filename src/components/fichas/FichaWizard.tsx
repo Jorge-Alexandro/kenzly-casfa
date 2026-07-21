@@ -855,23 +855,13 @@ function ProductorBanner({
         </div>
         <div className="text-right">
           <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">
-            Estatus de certificación
+            Estatus de certificación {productor.estatus_anio ? `(${productor.estatus_anio})` : new Date().getFullYear()}
           </span>
-          {nivel ? (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-bold ring-1 ${colores[nivel] ?? colores.nuevo}`}
-            >
-              {NIVEL_CERT_LABEL[nivel]}
-              <span className="text-xs font-normal opacity-80">
-                {NIVEL_CERT_NOMBRE[nivel]}
-                {productor.estatus_anio ? ` ${productor.estatus_anio}` : ''}
-              </span>
-            </span>
-          ) : (
-            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
-              Sin estatus registrado
-            </span>
-          )}
+          <NivelSelector
+            productorId={productor.id}
+            nivelInicial={nivel}
+            colores={colores}
+          />
         </div>
       </div>
       {parcelas.length > 0 && (
@@ -900,6 +890,56 @@ function ProductorBanner({
       {/* #F Corregir datos del productor/parcela en campo (offline) */}
       <EditarDatosCampo productor={productor} parcelas={parcelas} />
     </section>
+  )
+}
+
+// #2 Cambiar el nivel de certificación (O/T1/T2/T3/Nuevo) del productor para el
+// año actual, desde la propia ficha. Guarda vía /api/certificacion/estatus.
+function NivelSelector({
+  productorId,
+  nivelInicial,
+  colores,
+}: {
+  productorId: string
+  nivelInicial: string | null
+  colores: Record<string, string>
+}) {
+  const NIVELES = ['nuevo', 't1', 't2', 't3', 'organico'] as const
+  const [nivel, setNivel] = useState<string>(nivelInicial ?? '')
+  const [msg, setMsg] = useState<'guardando' | 'ok' | 'error' | null>(null)
+
+  async function cambiar(nuevo: string) {
+    setNivel(nuevo)
+    if (!nuevo) return
+    setMsg('guardando')
+    try {
+      const res = await fetch('/api/certificacion/estatus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productor_id: productorId, anio: new Date().getFullYear(), nivel: nuevo }),
+      })
+      setMsg(res.ok ? 'ok' : 'error')
+    } catch {
+      setMsg('error')
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <select
+        value={nivel}
+        onChange={(e) => cambiar(e.target.value)}
+        className={`cursor-pointer rounded-full px-2.5 py-1 text-sm font-bold outline-none ring-1 ${nivel ? (colores[nivel] ?? colores.nuevo) : 'bg-white text-slate-400 ring-slate-200'}`}
+      >
+        <option value="">Sin estatus</option>
+        {NIVELES.map((n) => (
+          <option key={n} value={n}>{NIVEL_CERT_LABEL[n]} — {NIVEL_CERT_NOMBRE[n]}</option>
+        ))}
+      </select>
+      {msg === 'guardando' && <span className="text-[10px] text-slate-400">…</span>}
+      {msg === 'ok' && <span className="text-[10px] text-green-600">✓</span>}
+      {msg === 'error' && <span className="text-[10px] text-red-600">error</span>}
+    </div>
   )
 }
 
