@@ -23,9 +23,11 @@ export interface BitacoraInsumo {
 // Cosecha por especie (CHESPAL): fecha y kilogramos EN UVA (cereza), separados
 // para café arábico y robusta (antes era una sola "Fecha de cosecha").
 export interface BitacoraCosecha {
-  arabica_fecha: string
+  arabica_fecha: string // inicio
+  arabica_fecha_fin: string // término
   arabica_kg_uva: number | null
   robusta_fecha: string
+  robusta_fecha_fin: string
   robusta_kg_uva: number | null
 }
 
@@ -76,7 +78,10 @@ const PLANTILLA_ACTIVIDADES: Omit<BitacoraActividad, 'gastos' | 'marcas'>[] = [
 ]
 
 export function cosechaVacia(): BitacoraCosecha {
-  return { arabica_fecha: '', arabica_kg_uva: null, robusta_fecha: '', robusta_kg_uva: null }
+  return {
+    arabica_fecha: '', arabica_fecha_fin: '', arabica_kg_uva: null,
+    robusta_fecha: '', robusta_fecha_fin: '', robusta_kg_uva: null,
+  }
 }
 
 // Crea un grid vacío (todas las actividades, sin marcas).

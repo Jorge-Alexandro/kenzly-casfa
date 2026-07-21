@@ -317,14 +317,32 @@ export default function FichaWizard({
             />
           )}
           <Card title="Datos de la inspección">
-            <Field label="Fecha de inspección">
-              <input
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
-              />
-            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Fecha de inspección">
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+                />
+              </Field>
+              <Field label="Hora de inicio">
+                <input
+                  type="time"
+                  value={(respuestas.hora_inicio as string) ?? ''}
+                  onChange={(e) => setCampo('hora_inicio', e.target.value || null)}
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+                />
+              </Field>
+              <Field label="Hora de término">
+                <input
+                  type="time"
+                  value={(respuestas.hora_fin as string) ?? ''}
+                  onChange={(e) => setCampo('hora_fin', e.target.value || null)}
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+                />
+              </Field>
+            </div>
           </Card>
 
           {template.secciones.map((sec) => {

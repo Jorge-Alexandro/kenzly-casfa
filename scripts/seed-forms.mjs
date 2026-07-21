@@ -111,7 +111,6 @@ const ROBUSTA = {
     {
       nombre: '2. Información de la parcela',
       campos: [
-        ...HORAS_INSPECCION,
         f('variedades', 'Variedades y marco de plantación', 'tabla', null, { columnas: VARIEDADES_COLS }),
         f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior', convertidor: 'qq' }),
         f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual', convertidor: 'qq' }),
@@ -396,7 +395,6 @@ const ARABE = {
     {
       nombre: '2. Información de la parcela',
       campos: [
-        ...HORAS_INSPECCION,
         f('estatus_parcela', 'Estatus de la parcela', 'text'),
         // Árabe: producción POR variedad en la tabla (CHESPAL).
         f('variedades', 'Variedades, marco de plantación y producción por variedad', 'tabla', null, { columnas: VARIEDADES_COLS_ARABE }),
@@ -649,7 +647,6 @@ const TROPICALES = {
     {
       nombre: '2. Datos de ubicación de la unidad de producción',
       campos: [
-        ...HORAS_INSPECCION,
         f('estatus_parcela', 'Estatus de la(s) parcela(s)', 'text'),
         f('pendiente', 'Pendiente', 'text'),
         f('tipo_suelo', 'Tipo de suelo', 'text'),
@@ -708,7 +705,7 @@ const TROPICALES = {
     {
       nombre: '6. Manejo agroecológico del cultivo',
       campos: [
-        f('manejo_sombra_diversificacion', 'Manejo de sombra y diversificación', 'longtext'),
+        f('manejo_sombra_diversificacion', 'Manejo de sombra y diversificación (gradiente A/B/C/D)', 'enum', ['A', 'B', 'C', 'D'], { multiple: true }),
         f('especies_maderables', 'Principales especies maderables', 'text'),
         f('cantidad_maderables', 'Cantidad de maderables', 'number'),
         f('deshierbe_con_machete', '¿Realiza el deshierbe o chapeo con machete?'),

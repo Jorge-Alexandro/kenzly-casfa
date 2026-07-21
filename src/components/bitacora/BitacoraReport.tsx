@@ -64,7 +64,8 @@ export default function BitacoraReport({
           <thead>
             <tr className="bg-slate-50">
               <Th>Especie</Th>
-              <Th>Fecha de cosecha</Th>
+              <Th>Inicio de cosecha</Th>
+              <Th>Término de cosecha</Th>
               <Th>Cosecha en uva (kg)</Th>
             </tr>
           </thead>
@@ -72,11 +73,13 @@ export default function BitacoraReport({
             <tr>
               <Td>Café Arábica</Td>
               <Td>{datos.cosecha?.arabica_fecha || '—'}</Td>
+              <Td>{datos.cosecha?.arabica_fecha_fin || '—'}</Td>
               <Td>{datos.cosecha?.arabica_kg_uva ?? '—'}</Td>
             </tr>
             <tr>
               <Td>Café Robusta</Td>
               <Td>{datos.cosecha?.robusta_fecha || '—'}</Td>
+              <Td>{datos.cosecha?.robusta_fecha_fin || '—'}</Td>
               <Td>{datos.cosecha?.robusta_kg_uva ?? '—'}</Td>
             </tr>
           </tbody>

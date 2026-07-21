@@ -129,6 +129,12 @@ export default function FichaReport({
                   : '—'}
               </Td>
             </tr>
+            <tr>
+              <Td b>Hora de inicio</Td>
+              <Td>{(r('hora_inicio') as string) || '—'}</Td>
+              <Td b>Hora de término</Td>
+              <Td>{(r('hora_fin') as string) || '—'}</Td>
+            </tr>
           </tbody>
         </table>
 

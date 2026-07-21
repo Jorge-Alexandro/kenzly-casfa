@@ -176,15 +176,19 @@ export default function BitacoraEditor({
           <CosechaEspecie
             titulo="Café Arábica"
             fecha={datos.cosecha.arabica_fecha}
+            fechaFin={datos.cosecha.arabica_fecha_fin}
             kg={datos.cosecha.arabica_kg_uva}
             onFecha={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_fecha: v } }))}
+            onFechaFin={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_fecha_fin: v } }))}
             onKg={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_kg_uva: v } }))}
           />
           <CosechaEspecie
             titulo="Café Robusta"
             fecha={datos.cosecha.robusta_fecha}
+            fechaFin={datos.cosecha.robusta_fecha_fin}
             kg={datos.cosecha.robusta_kg_uva}
             onFecha={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_fecha: v } }))}
+            onFechaFin={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_fecha_fin: v } }))}
             onKg={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_kg_uva: v } }))}
           />
         </div>
@@ -308,28 +312,43 @@ function ParcelaBuscador({
 function CosechaEspecie({
   titulo,
   fecha,
+  fechaFin,
   kg,
   onFecha,
+  onFechaFin,
   onKg,
 }: {
   titulo: string
   fecha: string
+  fechaFin: string
   kg: number | null
   onFecha: (v: string) => void
+  onFechaFin: (v: string) => void
   onKg: (v: number | null) => void
 }) {
   return (
     <div className="rounded-md border border-slate-100 p-3">
       <p className="mb-2 text-sm font-semibold text-slate-700">{titulo}</p>
-      <label className="mb-2 block">
-        <span className="mb-1 block text-xs text-slate-500">Fecha de cosecha</span>
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => onFecha(e.target.value)}
-          className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-        />
-      </label>
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">Inicio de cosecha</span>
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => onFecha(e.target.value)}
+            className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">Término de cosecha</span>
+          <input
+            type="date"
+            value={fechaFin}
+            onChange={(e) => onFechaFin(e.target.value)}
+            className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+          />
+        </label>
+      </div>
       <label className="block">
         <span className="mb-1 block text-xs text-slate-500">Cosecha en uva (kg)</span>
         <input
