@@ -12,6 +12,13 @@ import type { ProductoCatalogo, ProductorLite } from '@/lib/acopio/tipos'
 const norm = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
+/** Temporada "Temp 2026-2027" desde la fecha (corte en septiembre). */
+const temporadaDe = (iso: string) => {
+  const d = iso ? new Date(iso) : new Date()
+  const y = d.getFullYear()
+  return `Temp ${d.getMonth() + 1 >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`}`
+}
+
 export default function NuevaEntradaForm({
   catalogo,
   productores,
@@ -27,6 +34,10 @@ export default function NuevaEntradaForm({
   const [busqueda, setBusqueda] = useState('')
   const [especie, setEspecie] = useState('')
   const [tipo, setTipo] = useState('')
+  // Temporada de cosecha: arranca sugerida por la fecha y se puede editar. Si el
+  // capturista no la ha tocado, se ajusta sola al cambiar la fecha.
+  const [cosecha, setCosecha] = useState(() => temporadaDe(new Date().toISOString().slice(0, 10)))
+  const [cosechaTocada, setCosechaTocada] = useState(false)
   const [comentarios, setComentarios] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -101,6 +112,7 @@ export default function NuevaEntradaForm({
           especie,
           tipo,
           fecha_acopio: fecha,
+          cosecha: cosecha.trim() || null,
           comentarios: comentarios || null,
         }),
       })
@@ -129,14 +141,31 @@ export default function NuevaEntradaForm({
       </div>
 
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
-        <Campo label="Fecha de acopio">
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          />
-        </Campo>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo label="Fecha de acopio">
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => {
+                setFecha(e.target.value)
+                if (!cosechaTocada) setCosecha(temporadaDe(e.target.value))
+              }}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Campo>
+          <Campo label="Temporada de cosecha">
+            <input
+              type="text"
+              value={cosecha}
+              onChange={(e) => {
+                setCosecha(e.target.value)
+                setCosechaTocada(true)
+              }}
+              placeholder="Temp 2026-2027"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Campo>
+        </div>
 
         <Campo label="Proveedor (padrón de acopio)">
           <input

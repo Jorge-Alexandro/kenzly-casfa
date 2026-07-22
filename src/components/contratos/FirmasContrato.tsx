@@ -15,15 +15,51 @@ export default function FirmasContrato({
   contrato,
   representante,
   firmaRepresentanteGuardada,
+  puedeGestionar,
 }: {
   contrato: ContratoDetalle
   representante: string
   firmaRepresentanteGuardada: string | null
+  /** admin/coordinador: puede generar la liga de firma remota. */
+  puedeGestionar: boolean
 }) {
   const router = useRouter()
   const [abierto, setAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Liga de firma remota del vendedor.
+  const [liga, setLiga] = useState<string | null>(
+    contrato.firma_token ? `${origenActual()}/firmar/${contrato.firma_token}` : null,
+  )
+  const [ligaCargando, setLigaCargando] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+
+  async function generarLiga() {
+    setError(null)
+    setLigaCargando(true)
+    try {
+      const res = await fetch(`/api/contratos/${contrato.id}/firma-link`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo generar la liga')
+      setLiga(data.url)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error inesperado')
+    } finally {
+      setLigaCargando(false)
+    }
+  }
+
+  async function copiar() {
+    if (!liga) return
+    try {
+      await navigator.clipboard.writeText(liga)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 1800)
+    } catch {
+      /* si el navegador no deja copiar, la liga está a la vista para copiarla a mano */
+    }
+  }
 
   const [firmaVendedor, setFirmaVendedor] = useState<string | null>(contrato.firma_vendedor_url)
   const [firmaComprador, setFirmaComprador] = useState<string | null>(
@@ -130,8 +166,51 @@ export default function FirmasContrato({
           </div>
         </div>
       )}
+
+      {/* Firma remota: liga para que el vendedor firme sin estar presente */}
+      {puedeGestionar && !contrato.firma_vendedor_url && (
+        <div className="border-t border-slate-100 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            ¿El vendedor no está presente?
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Genera una liga y compártela por WhatsApp o correo. Él la abre en su celular, ve el
+            contrato y firma; su firma se estampa aquí automáticamente.
+          </p>
+
+          {!liga ? (
+            <button
+              onClick={generarLiga}
+              disabled={ligaCargando}
+              className="mt-3 rounded-md border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-60"
+            >
+              {ligaCargando ? 'Generando…' : '🔗 Generar liga de firma'}
+            </button>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                readOnly
+                value={liga}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600"
+              />
+              <button
+                onClick={copiar}
+                className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700"
+              >
+                {copiado ? '¡Copiada!' : 'Copiar liga'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
+}
+
+/** Origen actual (https://…) para armar la liga en el cliente. */
+function origenActual() {
+  return typeof window !== 'undefined' ? window.location.origin : ''
 }
 
 function FirmaGuardada({

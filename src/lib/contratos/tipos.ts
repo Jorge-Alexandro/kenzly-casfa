@@ -120,6 +120,8 @@ export interface ContratoDetalle extends ContratoRow {
   firma_comprador_url: string | null
   firmado_vendedor_at: string | null
   firmado_comprador_at: string | null
+  /** Token de la liga de firma remota del vendedor (null = sin liga). */
+  firma_token: string | null
   observaciones: string | null
 }
 

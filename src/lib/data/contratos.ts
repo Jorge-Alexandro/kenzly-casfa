@@ -22,7 +22,7 @@ const DETALLE_COLS =
   ', ciclo, productor_id, vendedor_domicilio, vendedor_curp, vendedor_rfc,' +
   ' vendedor_telefono, anticipo, fecha_entrega, calidad_texto, costalera_texto,' +
   ' condiciones_texto, arbitraje_texto, lugar_firma, firma_vendedor_url,' +
-  ' firma_comprador_url, firmado_vendedor_at, firmado_comprador_at, observaciones'
+  ' firma_comprador_url, firmado_vendedor_at, firmado_comprador_at, firma_token, observaciones'
 
 export async function getContratos(): Promise<ContratoRow[]> {
   const supabase = await createClient()
@@ -44,6 +44,42 @@ export async function getContrato(id: string): Promise<ContratoDetalle | null> {
     .maybeSingle()
   if (error) throw new Error(error.message)
   return (data as unknown as ContratoDetalle) ?? null
+}
+
+/**
+ * Contrato + config para la LIGA DE FIRMA REMOTA (pública, sin sesión).
+ * Usa la llave de servicio porque el vendedor no tiene cuenta; el acceso lo da
+ * el token (capacidad no adivinable). Devuelve sólo lo necesario para mostrar y
+ * firmar el contrato — nada de otras filas de la organización.
+ */
+export async function getContratoPorToken(
+  token: string,
+): Promise<{ contrato: ContratoDetalle; config: ContratoConfig | null } | null> {
+  const { createClient: createAdmin } = await import('@supabase/supabase-js')
+  const db = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const { data, error } = await db
+    .from('contrato_fijacion')
+    .select(DETALLE_COLS + ', org_id')
+    .eq('firma_token', token)
+    .maybeSingle()
+  if (error || !data) return null
+
+  const { data: cfg } = await db
+    .from('contrato_config')
+    .select(
+      'razon_social, rfc, domicilio_fiscal, representante_nombre, representante_cargo,' +
+        ' firma_representante_url, arbitraje_nacional_texto, arbitraje_internacional_texto, lugar_firma',
+    )
+    .eq('org_id', (data as unknown as { org_id: string }).org_id)
+    .maybeSingle()
+
+  return {
+    contrato: data as unknown as ContratoDetalle,
+    config: (cfg as unknown as ContratoConfig) ?? null,
+  }
 }
 
 export async function getConfig(): Promise<ContratoConfig | null> {

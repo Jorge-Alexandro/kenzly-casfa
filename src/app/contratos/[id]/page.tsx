@@ -10,9 +10,11 @@ import {
   fmtDinero,
   folioContrato,
 } from '@/lib/contratos/tipos'
+import { esSupervisor } from '@/lib/acopio/estado'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import FirmasContrato from '@/components/contratos/FirmasContrato'
+import BorrarContrato from '@/components/contratos/BorrarContrato'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +25,8 @@ export default async function ContratoPage({ params }: { params: { id: string } 
 
   const [c, config] = await Promise.all([getContrato(params.id), getConfig()])
   if (!c) notFound()
+
+  const puedeGestionar = esSupervisor(result.session.rol)
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
@@ -52,6 +56,7 @@ export default async function ContratoPage({ params }: { params: { id: string } 
               >
                 ↓ Descargar contrato (PDF)
               </a>
+              {puedeGestionar && <BorrarContrato id={c.id} folio={c.folio} />}
               <Link href="/contratos" className="text-sm text-slate-500 hover:text-slate-700">← Volver</Link>
             </div>
           </div>
@@ -105,6 +110,7 @@ export default async function ContratoPage({ params }: { params: { id: string } 
             contrato={c}
             representante={config?.representante_nombre ?? 'Representante Legal'}
             firmaRepresentanteGuardada={config?.firma_representante_url ?? null}
+            puedeGestionar={puedeGestionar}
           />
         </div>
       </div>

@@ -36,9 +36,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isAuthRoute = pathname.startsWith('/login')
   const isApiRoute = pathname.startsWith('/api/')
-  // /offline es la página de respaldo del service worker: debe ser pública
-  // para que se precachee correctamente (sin redirigir a /login).
-  const isPublicRoute = pathname === '/offline'
+  // Rutas públicas (sin sesión):
+  //  · /offline  — respaldo del service worker (debe precachearse).
+  //  · /firmar/* — liga de firma remota del vendedor, que no tiene cuenta.
+  const isPublicRoute = pathname === '/offline' || pathname.startsWith('/firmar')
 
   if (!user && !isAuthRoute && !isApiRoute && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url)
