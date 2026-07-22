@@ -16,6 +16,7 @@ import {
 import type { ParcelaLite } from '@/lib/types'
 import { codigoCorto } from '@/lib/format'
 import { enviarOEncolarBitacora } from '@/lib/offline/sync'
+import { encolarBitacora } from '@/lib/offline/db'
 
 interface Props {
   mode: 'nueva' | 'editar'
@@ -29,6 +30,12 @@ interface Props {
    * de la ficha, donde salirse cortaría el flujo de la inspección.
    */
   onGuardada?: () => void
+  /**
+   * Llave en la cola del dispositivo cuando se está CORRIGIENDO una bitácora
+   * que todavía no se ha subido: se reescribe esa entrada en vez de encolar
+   * una copia, que se subiría dos veces.
+   */
+  localId?: string
 }
 
 export default function BitacoraEditor({
@@ -39,6 +46,7 @@ export default function BitacoraEditor({
   datosIniciales,
   fichaId,
   onGuardada,
+  localId,
 }: Props) {
   const router = useRouter()
   const [parcelaId, setParcelaId] = useState(parcelaFija?.id ?? '')
@@ -93,10 +101,14 @@ export default function BitacoraEditor({
           const p = parcelas.find((x) => x.id === parcelaId)
           return p ? `Bitácora · ${p.nombre || p.codigo_parcela} (${anio})` : `Bitácora (${anio})`
         })()
-      const r = await enviarOEncolarBitacora(
-        { parcela_id: parcelaId, anio, datos, ficha_id: fichaId ?? null },
-        etiqueta,
-      )
+      const cuerpo = { parcela_id: parcelaId, anio, datos, ficha_id: fichaId ?? null }
+      if (localId) {
+        await encolarBitacora({ local_id: localId, creada_en: Date.now(), body: cuerpo, etiqueta })
+        setGuardadaOffline(true)
+        onGuardada?.()
+        return
+      }
+      const r = await enviarOEncolarBitacora(cuerpo, etiqueta)
       if (onGuardada) {
         if (!r.online) setGuardadaOffline(true)
         onGuardada()

@@ -26,6 +26,7 @@ export default function FichaAnexos({
   parcelas,
   etiquetaProductor,
   onSeguirEditando,
+  onTerminar,
 }: {
   online: boolean
   fichaId: string | null
@@ -33,6 +34,8 @@ export default function FichaAnexos({
   parcelas: ParcelaLite[]
   etiquetaProductor: string
   onSeguirEditando: () => void
+  /** Si viene, "Terminar" cierra el panel en lugar de navegar (uso offline). */
+  onTerminar?: () => void
 }) {
   const router = useRouter()
   const [anexo, setAnexo] = useState<Anexo>('ninguno')
@@ -167,6 +170,9 @@ export default function FichaAnexos({
         )}
         <button
           onClick={() => {
+            // Sin señal /fichas no existe: el service worker rebotaría a la
+            // pantalla offline. Por eso quien nos monta puede cerrarnos él.
+            if (onTerminar) return onTerminar()
             router.push('/fichas')
             router.refresh()
           }}

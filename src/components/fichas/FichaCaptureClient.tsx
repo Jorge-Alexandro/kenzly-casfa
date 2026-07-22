@@ -17,9 +17,12 @@ type Estado =
 
 export default function FichaCaptureClient({
   fichaEdicion,
+  onGuardada,
 }: {
   /** Si viene, en vez de capturar una ficha nueva se reabre esta para corregir. */
   fichaEdicion?: FichaEnEdicion
+  /** Al terminar de guardar; lo usa el panel de pendientes para cerrarse. */
+  onGuardada?: () => void
 } = {}) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' })
 
@@ -99,6 +102,7 @@ export default function FichaCaptureClient({
         productores={estado.productores}
         parcelas={estado.parcelas}
         fichaEdicion={fichaEdicion}
+        onGuardada={onGuardada}
       />
     </>
   )

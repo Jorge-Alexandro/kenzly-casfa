@@ -14,18 +14,25 @@ import {
   type HistorialCampo,
 } from '@/lib/historial'
 import { enviarOEncolarHistorial } from '@/lib/offline/sync'
+import { encolarHistorial } from '@/lib/offline/db'
 
 export default function HistorialEditor({
   parcelaId,
   parcelaLabel,
   aniosIniciales,
   onGuardado,
+  localId,
 }: {
   parcelaId: string
   parcelaLabel: string
   aniosIniciales: HistorialAnio[]
   /** Si viene, se avisa al guardar (panel de anexos de la ficha). */
   onGuardado?: () => void
+  /**
+   * Llave en la cola del dispositivo cuando se CORRIGE un historial que aún no
+   * se ha subido: se reescribe esa entrada en vez de encolar una copia.
+   */
+  localId?: string
 }) {
   const router = useRouter()
   const [anios, setAnios] = useState<HistorialAnio[]>(
@@ -68,14 +75,20 @@ export default function HistorialEditor({
     setBusy(true)
     setError(null)
     try {
+      const cuerpo = {
+        parcela_id: parcelaId,
+        anios: anios.map((a) => ({ anio: a.anio, datos: a.datos })),
+      }
+      const etiqueta = `Historial · ${parcelaLabel}`
+      if (localId) {
+        // Corrección de algo que sigue en la cola: se reescribe esa entrada.
+        await encolarHistorial({ local_id: localId, creada_en: Date.now(), body: cuerpo, etiqueta })
+        setGuardadaOffline(true)
+        onGuardado?.()
+        return
+      }
       // Offline-aware: con red se guarda; sin red se encola y se sube sola.
-      const r = await enviarOEncolarHistorial(
-        {
-          parcela_id: parcelaId,
-          anios: anios.map((a) => ({ anio: a.anio, datos: a.datos })),
-        },
-        `Historial · ${parcelaLabel}`,
-      )
+      const r = await enviarOEncolarHistorial(cuerpo, etiqueta)
       if (r.online) {
         router.refresh()
       } else {

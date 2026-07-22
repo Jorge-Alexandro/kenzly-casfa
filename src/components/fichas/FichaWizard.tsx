@@ -29,15 +29,25 @@ import FichaAnexos from './FichaAnexos'
 import PuntosGpsSection from './PuntosGpsSection'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import { enviarOEncolar, guardarEdicionFicha } from '@/lib/offline/sync'
-import { guardarBorrador, leerBorrador, borrarBorrador } from '@/lib/offline/db'
+import {
+  guardarBorrador,
+  leerBorrador,
+  borrarBorrador,
+  encolarFicha,
+} from '@/lib/offline/db'
 
 // Las respuestas pueden ser escalares o filas de tabla (variedades, etc.).
 type FilaTabla = Record<string, string | number | null>
 type Respuestas = Record<string, unknown>
 
-// Ficha existente que se está reabriendo para corregir (#1).
+// Ficha que se reabre para corregir. Puede venir de dos lados:
+//   · del servidor  -> `id`        (ficha ya subida)
+//   · de la cola     -> `local_id` (capturada sin señal, todavía en el aparato)
+// El inspector se equivoca igual en los dos casos, así que se corrigen igual.
 export interface FichaEnEdicion {
-  id: string
+  id: string | null
+  /** Si la ficha sigue en la cola del dispositivo, su llave local. */
+  local_id?: string
   tipo: TipoFicha
   template_id: string | null
   productor_id: string
@@ -52,12 +62,15 @@ export default function FichaWizard({
   productores,
   parcelas,
   fichaEdicion,
+  onGuardada,
 }: {
   templates: FormTemplate[]
   productores: ProductorLite[]
   parcelas: ParcelaLite[]
   /** Si viene, el wizard edita esa ficha en vez de crear una nueva. */
   fichaEdicion?: FichaEnEdicion
+  /** Al terminar de guardar (lo usa el panel de pendientes para cerrarse). */
+  onGuardada?: () => void
 }) {
   const router = useRouter()
   const editando = !!fichaEdicion
@@ -84,7 +97,13 @@ export default function FichaWizard({
     { fichaId: string | null; online: boolean } | null
   >(null)
   // Autoguardado local (#3).
-  const claveBorrador = fichaEdicion ? `ficha:${fichaEdicion.id}` : 'nueva'
+  // Una clave por ficha. Sin distinguir la local de la del servidor, dos
+  // fichas encoladas compartirían borrador y se pisarían entre ellas.
+  const claveBorrador = fichaEdicion?.local_id
+    ? `local:${fichaEdicion.local_id}`
+    : fichaEdicion?.id
+      ? `ficha:${fichaEdicion.id}`
+      : 'nueva'
   const [autoguardado, setAutoguardado] = useState<number | null>(null)
   const [borradorRecuperado, setBorradorRecuperado] = useState(false)
   const listoParaAutoguardar = useRef(false)
@@ -263,26 +282,36 @@ export default function FichaWizard({
     setError(null)
     try {
       const etiqueta = `${TIPO_FICHA_LABEL[tipo]} · ${productor?.nombre_completo ?? ''}`
-      // Offline-aware: si hay red se sube; si no, se guarda en el dispositivo
-      // y se sincroniza sola al volver la conexión.
-      const r = fichaEdicion
-        ? await guardarEdicionFicha(
-            fichaEdicion.id,
-            { parcela_ids: parcelaIds, fecha_inspeccion: fecha, respuestas, estado },
-            `${etiqueta} (corrección)`,
-          )
-        : await enviarOEncolar(
-            {
-              tipo,
-              template_id: template?.id ?? null,
-              productor_id: productorId,
-              parcela_ids: parcelaIds,
-              fecha_inspeccion: fecha,
-              respuestas,
-              estado,
-            },
-            etiqueta,
-          )
+      const cuerpo = {
+        tipo,
+        template_id: template?.id ?? null,
+        productor_id: productorId,
+        parcela_ids: parcelaIds,
+        fecha_inspeccion: fecha,
+        respuestas,
+        estado,
+      }
+      let r: { online: boolean; fichaId?: string }
+      if (fichaEdicion?.local_id) {
+        // Todavía no ha salido del aparato: se reescribe la MISMA entrada de la
+        // cola. Encolar una copia nueva subiría la ficha dos veces.
+        await encolarFicha({
+          local_id: fichaEdicion.local_id,
+          creada_en: Date.now(),
+          body: cuerpo,
+          etiqueta,
+        })
+        r = { online: false }
+      } else if (fichaEdicion?.id) {
+        // Offline-aware: si hay red se manda el PATCH; si no, se encola.
+        r = await guardarEdicionFicha(
+          fichaEdicion.id,
+          { parcela_ids: parcelaIds, fecha_inspeccion: fecha, respuestas, estado },
+          `${etiqueta} (corrección)`,
+        )
+      } else {
+        r = await enviarOEncolar(cuerpo, etiqueta)
+      }
       // Ya está a salvo (en el servidor o en la cola): el borrador sobra.
       await borrarBorrador(claveBorrador).catch(() => {})
       // No se sale de la ficha: se abre el panel para anexar bitácora e
@@ -307,6 +336,7 @@ export default function FichaWizard({
         parcelas={parcelasSeleccionadas}
         etiquetaProductor={productor?.nombre_completo ?? ''}
         onSeguirEditando={() => setGuardada(null)}
+        onTerminar={onGuardada}
       />
     )
   }
@@ -316,7 +346,9 @@ export default function FichaWizard({
       {editando ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5">
           <span className="text-sm font-medium text-sky-800">
-            Editando una ficha ya guardada
+            {fichaEdicion?.local_id
+              ? 'Corrigiendo una ficha que aún no se ha subido'
+              : 'Editando una ficha ya guardada'}
           </span>
           <AvisoAutoguardado en={autoguardado} />
         </div>

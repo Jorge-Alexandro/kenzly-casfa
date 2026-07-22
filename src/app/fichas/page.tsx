@@ -5,6 +5,7 @@ import { getSessionResult } from '@/lib/session'
 import { getFichas } from '@/lib/data/fichas'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
+import PendientesLocales from '@/components/PendientesLocales'
 import {
   TIPO_FICHA_LABEL,
   ESTADO_FICHA_LABEL,
@@ -41,6 +42,10 @@ export default async function FichasPage() {
 
       <div className="min-h-0 flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-5xl">
+          {/* Lo capturado en ESTE aparato que aún no sube. La tabla de abajo
+              viene del servidor y no puede verlo. */}
+          <PendientesLocales />
+
           {fichas.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
               <p className="text-sm text-slate-500">
