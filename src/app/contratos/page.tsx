@@ -7,7 +7,7 @@ import {
   CONTRATO_ESTADO_LABEL,
   CONTRATO_ESTADO_BADGE,
   fmtDinero,
-  fmtCantidad,
+  folioContrato,
 } from '@/lib/contratos/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
@@ -71,7 +71,7 @@ export default async function ContratosPage() {
                     <tr key={c.id} className="transition hover:bg-orange-50/40">
                       <td className="px-3 py-2.5">
                         <Link href={`/contratos/${c.id}`} className="font-semibold text-orange-700">
-                          #{c.folio}
+                          {folioContrato(c.folio)}
                         </Link>
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">{c.fecha}</td>
@@ -87,7 +87,12 @@ export default async function ContratosPage() {
                         {c.especie} <span className="text-slate-400">{c.tipo}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
-                        {fmtCantidad(c.cantidad, c.unidad)}
+                        {Number(c.cantidad).toLocaleString('es-MX')} kg
+                        {c.quintales != null && (
+                          <div className="text-xs text-slate-400">
+                            {Number(c.quintales).toLocaleString('es-MX', { maximumFractionDigits: 2 })} qq
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums font-medium text-slate-800">
                         {fmtDinero(c.importe, c.moneda)}

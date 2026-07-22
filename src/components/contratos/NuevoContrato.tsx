@@ -9,6 +9,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtDinero, type ContratoPlantilla, type VendedorLite } from '@/lib/contratos/tipos'
 
+/** Minúsculas y sin acentos, para que 'sanchez' encuentre 'Sánchez'. */
+const norm = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
 export default function NuevoContrato({
   plantillas,
   productores,
@@ -23,14 +27,20 @@ export default function NuevoContrato({
   const [error, setError] = useState<string | null>(null)
 
   const [productorId, setProductorId] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const [vendedor, setVendedor] = useState({
     vendedor_nombre: '', vendedor_domicilio: '', vendedor_curp: '', vendedor_rfc: '',
     vendedor_telefono: '', comunidad: '', municipio: '',
   })
   const [prodTipo, setProdTipo] = useState(plantillas[0] ? `${plantillas[0].especie}|${plantillas[0].tipo}` : '')
+  // `cantidad` son KILOS y `precio_unitario` es el precio POR KILO. Los otros
+  // dos campos (quintales y precio por quintal) son la misma cifra vista de la
+  // otra forma: se recalculan solos con el factor del producto.
   const [terminos, setTerminos] = useState({
     cantidad: '', precio_unitario: '', anticipo: '', fecha: hoy(), fecha_entrega: '', ciclo: '',
   })
+  const [quintales, setQuintales] = useState('')
+  const [precioQuintal, setPrecioQuintal] = useState('')
   const [arbitraje, setArbitraje] = useState<'nacional' | 'internacional'>('nacional')
   const [observaciones, setObservaciones] = useState('')
 
@@ -39,21 +49,64 @@ export default function NuevoContrato({
     [plantillas, prodTipo],
   )
 
+  // Búsqueda sin acentos por nombre, comunidad y municipio (igual que en acopio).
+  const proveedoresFiltrados = useMemo(() => {
+    const q = norm(busqueda)
+    if (!q) return productores
+    return productores.filter((p) =>
+      norm([p.nombre_completo, p.comunidad, p.municipio].filter(Boolean).join(' ')).includes(q),
+    )
+  }, [productores, busqueda])
+
+  // ¿El nombre tecleado no está en el padrón? Entonces al guardar se da de alta.
+  const esNuevo = useMemo(() => {
+    const n = norm(vendedor.vendedor_nombre)
+    return n.length > 0 && !productores.some((p) => norm(p.nombre_completo) === n)
+  }, [productores, vendedor.vendedor_nombre])
+
+  // El importe siempre sale de KILOS × PRECIO POR KILO (lo mismo que calcula la
+  // columna generada en la base). Los quintales son sólo la otra lectura.
   const importe = useMemo(() => {
     const c = Number(terminos.cantidad) || 0
     const p = Number(terminos.precio_unitario) || 0
     return Math.round(c * p * 100) / 100
   }, [terminos.cantidad, terminos.precio_unitario])
 
+  const factor = plantilla?.factor_quintal ?? null
+  const r3 = (n: number) => String(Math.round(n * 1000) / 1000)
+  const r4 = (n: number) => String(Math.round(n * 10000) / 10000)
+
+  /** Escribir en un campo actualiza a su pareja usando el factor del producto. */
+  function setKilos(v: string) {
+    setTerminos((t) => ({ ...t, cantidad: v }))
+    if (factor && factor > 0) setQuintales(v === '' ? '' : r3((Number(v) || 0) / factor))
+  }
+  function setSacos(v: string) {
+    setQuintales(v)
+    if (factor && factor > 0) {
+      setTerminos((t) => ({ ...t, cantidad: v === '' ? '' : r3((Number(v) || 0) * factor) }))
+    }
+  }
+  function setPrecioKg(v: string) {
+    setTerminos((t) => ({ ...t, precio_unitario: v }))
+    if (factor && factor > 0) setPrecioQuintal(v === '' ? '' : r4((Number(v) || 0) * factor))
+  }
+  function setPrecioQq(v: string) {
+    setPrecioQuintal(v)
+    if (factor && factor > 0) {
+      setTerminos((t) => ({ ...t, precio_unitario: v === '' ? '' : r4((Number(v) || 0) / factor) }))
+    }
+  }
+
   function elegirProductor(id: string) {
     setProductorId(id)
     const p = productores.find((x) => x.id === id)
     if (p) {
-      // El padrón sólo trae CURP; RFC y teléfono se dejan como estén (captura manual).
+      // El padrón de acopio trae nombre/comunidad/municipio; CURP, RFC y
+      // teléfono se capturan a mano (no viven en ese padrón).
       setVendedor((v) => ({
         ...v,
         vendedor_nombre: p.nombre_completo,
-        vendedor_curp: p.curp ?? '',
         comunidad: p.comunidad ?? '',
         municipio: p.municipio ?? '',
       }))
@@ -73,13 +126,15 @@ export default function NuevoContrato({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // El vendedor viaja como nombre + comunidad/municipio (snapshot). Si no
+          // está en el padrón de acopio, el servidor lo da de alta.
           ...vendedor,
-          productor_id: productorId || null,
           especie: plantilla.especie,
           tipo: plantilla.tipo,
           unidad: plantilla.unidad,
           moneda: plantilla.moneda,
           ...terminos,
+          quintales,
           arbitraje,
           observaciones,
         }),
@@ -101,21 +156,42 @@ export default function NuevoContrato({
         <Link href="/contratos" className="text-sm text-slate-500 hover:text-slate-700">← Volver</Link>
       </div>
 
-      {/* Vendedor */}
-      <Seccion titulo="Vendedor (productor)">
+      {/* Vendedor — sale del padrón de ACOPIO (el mismo de las entradas) */}
+      <Seccion titulo="Vendedor (padrón de acopio)">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Campo label="Del padrón">
-            <select value={productorId} onChange={(e) => elegirProductor(e.target.value)} className={INPUT}>
-              <option value="">— Capturar a mano —</option>
-              {productores.map((p) => (
+          <Campo label="Buscar en el padrón">
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Nombre, comunidad o municipio…"
+              className={INPUT}
+            />
+            <select
+              value={productorId}
+              onChange={(e) => elegirProductor(e.target.value)}
+              size={5}
+              className={`${INPUT} mt-2`}
+            >
+              <option value="">— Escribir uno nuevo —</option>
+              {proveedoresFiltrados.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.codigo ? `${p.codigo} · ` : ''}{p.nombre_completo}
+                  {p.nombre_completo}
+                  {p.comunidad ? ` · ${p.comunidad}` : ''}
                 </option>
               ))}
             </select>
+            <span className="mt-1 block text-xs text-slate-400">
+              {proveedoresFiltrados.length} de {productores.length} proveedores
+            </span>
           </Campo>
           <Campo label="Nombre del vendedor *">
             <input value={vendedor.vendedor_nombre} onChange={set(setVendedor, 'vendedor_nombre')} className={INPUT} />
+            {esNuevo && (
+              <span className="mt-1 block text-xs text-emerald-700">
+                Es un vendedor nuevo: se dará de alta solo en el padrón de acopio.
+              </span>
+            )}
           </Campo>
           <Campo label="Comunidad">
             <input value={vendedor.comunidad} onChange={set(setVendedor, 'comunidad')} className={INPUT} />
@@ -150,13 +226,23 @@ export default function NuevoContrato({
               ))}
             </select>
           </Campo>
-          <Campo label={`Cantidad (${plantilla?.unidad ?? 'unidad'}) *`}>
+          <Campo label="Kilos pactados *">
             <input type="number" min="0" step="0.001" inputMode="decimal"
-              value={terminos.cantidad} onChange={set(setTerminos, 'cantidad')} className={INPUT} />
+              value={terminos.cantidad} onChange={(e) => setKilos(e.target.value)} className={INPUT} />
           </Campo>
-          <Campo label={`Precio por ${plantilla?.unidad ?? 'unidad'} (${plantilla?.moneda ?? 'MXN'}) *`}>
+          <Campo label="Quintales (sacos)">
+            <input type="number" min="0" step="0.001" inputMode="decimal"
+              value={quintales} onChange={(e) => setSacos(e.target.value)}
+              disabled={!factor} className={INPUT} />
+          </Campo>
+          <Campo label={`Precio por KILO (${plantilla?.moneda ?? 'MXN'}) *`}>
+            <input type="number" min="0" step="0.0001" inputMode="decimal"
+              value={terminos.precio_unitario} onChange={(e) => setPrecioKg(e.target.value)} className={INPUT} />
+          </Campo>
+          <Campo label={`Precio por quintal (${plantilla?.moneda ?? 'MXN'})`}>
             <input type="number" min="0" step="0.01" inputMode="decimal"
-              value={terminos.precio_unitario} onChange={set(setTerminos, 'precio_unitario')} className={INPUT} />
+              value={precioQuintal} onChange={(e) => setPrecioQq(e.target.value)}
+              disabled={!factor} className={INPUT} />
           </Campo>
           <Campo label={`Anticipo (${plantilla?.moneda ?? 'MXN'})`}>
             <input type="number" min="0" step="0.01" inputMode="decimal"
@@ -173,8 +259,20 @@ export default function NuevoContrato({
           </Campo>
         </div>
 
+        <p className="mt-2 text-xs text-slate-400">
+          {factor
+            ? `Kilos y quintales son la misma cantidad: 1 quintal = ${factor} kg de ${plantilla?.nombre ?? 'este café'}. Escribe en cualquiera de los dos y el otro se ajusta solo.`
+            : 'Este producto no maneja quintales (el cacao se pacta sólo por kilo).'}
+        </p>
+
         <div className="mt-3 flex items-center justify-between rounded-md bg-orange-50 px-4 py-2.5">
-          <span className="text-sm text-slate-600">Importe del contrato</span>
+          <span className="text-sm text-slate-600">
+            Importe del contrato
+            <span className="ml-2 text-xs text-slate-400">
+              {(Number(terminos.cantidad) || 0).toLocaleString('es-MX')} kg ×{' '}
+              {fmtDinero(Number(terminos.precio_unitario) || 0, '')}/kg
+            </span>
+          </span>
           <span className="text-lg font-semibold tabular-nums text-orange-700">
             {fmtDinero(importe, plantilla?.moneda ?? 'MXN')}
           </span>

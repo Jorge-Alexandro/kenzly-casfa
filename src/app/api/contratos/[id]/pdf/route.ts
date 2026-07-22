@@ -41,18 +41,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const [contrato, config] = await Promise.all([getContrato(params.id), getConfig()])
   if (!contrato) return new Response('Contrato no encontrado', { status: 404 })
 
-  const [membrete, sello, firmaVendedor, firmaComprador] = await Promise.all([
-    logo('casfasa.png'), // encabezado
+  const [logoCasfa, membrete, sello, firmaVendedor, firmaComprador] = await Promise.all([
+    logo('casfa.png'), // logo Red Maya — izquierda del encabezado
+    logo('casfasa.png'), // logo CASFASA — derecha del encabezado
     logo('sello.png'), // sello de aprobación
     bajar(contrato.firma_vendedor_url),
     bajar(contrato.firma_comprador_url ?? config?.firma_representante_url ?? null),
   ])
 
-  const img: ContratoImagenes = { membrete, sello, firmaVendedor, firmaComprador }
+  const img: ContratoImagenes = { logoCasfa, membrete, sello, firmaVendedor, firmaComprador }
   const pdf = await renderToBuffer(ContratoPdf({ contrato, config, img }))
 
   const slug = contrato.vendedor_nombre.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_').slice(0, 40)
-  const nombre = `Contrato_${contrato.folio}_${slug}.pdf`
+  const nombre = `CASFA_CF_${contrato.folio}_${slug}.pdf`
 
   return new Response(pdf as unknown as BodyInit, {
     status: 200,

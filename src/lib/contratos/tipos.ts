@@ -45,17 +45,19 @@ export interface ContratoConfig {
 }
 
 /**
- * Padrón para el selector de vendedor. El padrón sólo tiene CURP e INE — el RFC
- * y el teléfono no viven ahí, se capturan a mano en el contrato.
+ * Vendedor del contrato = proveedor del padrón de ACOPIO (`acopio_proveedor`),
+ * el mismo que se usa al capturar una entrada. Es la lista correcta porque a
+ * quien se le compra café es a quien se le hace el contrato; muchos son
+ * empresas y no están en el padrón de certificación.
+ *
+ * Ese padrón sólo guarda nombre/comunidad/municipio: CURP, RFC y teléfono se
+ * capturan a mano en el contrato.
  */
 export interface VendedorLite {
   id: string
-  codigo: string
   nombre_completo: string
   comunidad: string | null
   municipio: string | null
-  curp: string | null
-  ine: string | null
 }
 
 /** Plantilla por tipo de café: las cláusulas que cambian según el producto. */
@@ -63,8 +65,10 @@ export interface ContratoPlantilla {
   especie: string
   tipo: string
   nombre: string
-  unidad: string // quintal | kg
+  unidad: string // kg (el precio se pacta por kilo)
   moneda: string // MXN | USD
+  /** Kg por quintal del producto: 57.5 pergamino, 45.35 oro, 80 cerezo. */
+  factor_quintal: number | null
   calidad_texto: string
   costalera_texto: string
   condiciones_texto: string
@@ -80,11 +84,17 @@ export interface ContratoRow {
   municipio: string | null
   especie: string
   tipo: string
+  /** Kilos pactados (la unidad la dice `unidad`). */
   cantidad: number
   unidad: string
+  /** Precio por kilo. */
   precio_unitario: number
   moneda: string
   importe: number
+  /** El mismo volumen en quintales (sacos). */
+  quintales: number | null
+  /** Kg por quintal con el que se firmó (snapshot). */
+  factor_quintal: number | null
   arbitraje: ArbitrajeTipo
   estado: ContratoEstado
 }
@@ -112,6 +122,13 @@ export interface ContratoDetalle extends ContratoRow {
   firmado_comprador_at: string | null
   observaciones: string | null
 }
+
+/**
+ * Folio visible del contrato: "CASFA CF #1" (CF = Contrato de Fijación).
+ * En la base sigue siendo un entero consecutivo; esto es sólo su presentación,
+ * para que el número no se confunda con el folio de una boleta de acopio.
+ */
+export const folioContrato = (folio: number) => `CASFA CF #${folio}`
 
 /** Número a moneda: $1,234.56 MXN. */
 export function fmtDinero(n: number | null | undefined, moneda = 'MXN'): string {

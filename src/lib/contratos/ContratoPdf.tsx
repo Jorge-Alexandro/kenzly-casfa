@@ -3,22 +3,32 @@
 // conmutable y bloques de firma (con el sello estampado junto a la de CASFA).
 // Las imágenes llegan como DATA URI (react-pdf no acepta Buffer en <Image>).
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
+import { folioContrato } from '@/lib/contratos/tipos'
 import type { ContratoDetalle, ContratoConfig } from '@/lib/contratos/tipos'
 
 export interface ContratoImagenes {
-  membrete?: string // logo CASFASA para el encabezado
+  logoCasfa?: string // logo CASFA (Red Maya) — izquierda del encabezado
+  membrete?: string // logo CASFASA — derecha del encabezado
   sello?: string // sello de aprobación (se estampa junto a la firma de CASFA)
   firmaVendedor?: string
   firmaComprador?: string // Adrián
 }
 
+// Encabezado fijo de CASFA (mismo membrete que el recibo de acopio).
+const ENCABEZADO = {
+  razon: 'CENTRO AGROECOLÓGICO SAN FRANCISCO DE ASÍS',
+  domicilio: '1A AVENIDA NORTE #130, COLONIA CENTRO, TAPACHULA, CHIAPAS',
+  email: 'EMAIL: contacto@redcasfa.com',
+  tel: 'TEL: 962 118 28 08 · TEL: 962 625 06 43',
+}
+
 const s = StyleSheet.create({
   page: { paddingTop: 36, paddingBottom: 54, paddingHorizontal: 44, fontSize: 10, color: '#1f2937', lineHeight: 1.5 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1.5, borderBottomColor: '#0f5132', paddingBottom: 10 },
-  logo: { width: 64, height: 46, objectFit: 'contain' },
-  headerText: { flex: 1 },
-  razon: { fontSize: 12, fontFamily: 'Helvetica-Bold', color: '#0f5132' },
-  domicilio: { fontSize: 8, color: '#6b7280', marginTop: 2 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: 1, borderBottomColor: '#94a3b8', paddingBottom: 8 },
+  logo: { width: 62, height: 56, objectFit: 'contain' },
+  headerText: { flex: 1, textAlign: 'center', lineHeight: 1.35 },
+  razon: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: '#1f2937' },
+  domicilio: { fontSize: 8, color: '#4b5563', marginTop: 1 },
   title: { marginTop: 16, textAlign: 'center', fontSize: 13, fontFamily: 'Helvetica-Bold' },
   folio: { textAlign: 'center', fontSize: 10, color: '#6b7280', marginTop: 2, marginBottom: 12 },
   intro: { textAlign: 'justify', marginBottom: 12 },
@@ -93,17 +103,29 @@ export function ContratoPdf({
 
   // Numeración de cláusulas: sólo aparecen las que tienen texto.
   const clausulas: { titulo: string; texto: string }[] = []
+  // El volumen se dice en kilos y, entre paréntesis, en quintales: el productor
+  // habla en sacos y el pago se hace por kilo. Las dos cifras van en el papel.
+  const kg = Number(contrato.cantidad).toLocaleString('es-MX', { maximumFractionDigits: 3 })
+  const qq =
+    contrato.quintales == null
+      ? null
+      : Number(contrato.quintales).toLocaleString('es-MX', { maximumFractionDigits: 3 })
+
   clausulas.push({
     titulo: 'OBJETO',
     texto:
-      `El VENDEDOR se obliga a vender y entregar al COMPRADOR ${cant(contrato.cantidad, contrato.unidad)} ` +
-      `de ${contrato.especie} ${contrato.tipo}, y el COMPRADOR a pagar por ellos el precio pactado en la cláusula siguiente.`,
+      `El VENDEDOR se obliga a vender y entregar al COMPRADOR ${kg} kilogramos` +
+      (qq ? ` (equivalentes a ${qq} quintales)` : '') +
+      ` de ${contrato.especie} ${contrato.tipo}, y el COMPRADOR a pagar por ellos el precio pactado en la cláusula siguiente.`,
   })
   clausulas.push({
     titulo: 'PRECIO Y FORMA DE PAGO',
     texto:
-      `El precio pactado es de ${money(contrato.precio_unitario, contrato.moneda)} por ${contrato.unidad}, ` +
-      `para un importe total de ${money(contrato.importe, contrato.moneda)}` +
+      `El precio pactado es de ${money(contrato.precio_unitario, contrato.moneda)} por KILOGRAMO` +
+      (contrato.factor_quintal
+        ? ` (${money(Number(contrato.precio_unitario) * Number(contrato.factor_quintal), contrato.moneda)} por quintal de ${contrato.factor_quintal} kg)`
+        : '') +
+      `, para un importe total de ${money(contrato.importe, contrato.moneda)}` +
       (contrato.anticipo > 0 ? `, del cual se entrega un anticipo de ${money(contrato.anticipo, contrato.moneda)}.` : '.'),
   })
   if (contrato.calidad_texto) clausulas.push({ titulo: 'CALIDAD', texto: contrato.calidad_texto })
@@ -120,18 +142,20 @@ export function ContratoPdf({
   return (
     <Document>
       <Page size="LETTER" style={s.page}>
-        {/* Membrete */}
+        {/* Membrete: logo CASFA · datos de contacto · logo CASFASA */}
         <View style={s.header}>
-          {img.membrete ? <Image style={s.logo} src={img.membrete} /> : null}
+          {img.logoCasfa ? <Image style={s.logo} src={img.logoCasfa} /> : <View style={s.logo} />}
           <View style={s.headerText}>
-            <Text style={s.razon}>{razon}</Text>
-            {config?.domicilio_fiscal ? <Text style={s.domicilio}>{config.domicilio_fiscal}</Text> : null}
-            {config?.rfc ? <Text style={s.domicilio}>RFC: {config.rfc}</Text> : null}
+            <Text style={s.razon}>{ENCABEZADO.razon}</Text>
+            <Text style={s.domicilio}>{ENCABEZADO.domicilio}</Text>
+            <Text style={s.domicilio}>{ENCABEZADO.email}</Text>
+            <Text style={s.domicilio}>{ENCABEZADO.tel}</Text>
           </View>
+          {img.membrete ? <Image style={s.logo} src={img.membrete} /> : <View style={s.logo} />}
         </View>
 
         <Text style={s.title}>CONTRATO DE COMPRAVENTA DE CAFÉ A PRECIO DE FIJACIÓN</Text>
-        <Text style={s.folio}>Folio {contrato.folio}{contrato.ciclo ? ` · Ciclo ${contrato.ciclo}` : ''}</Text>
+        <Text style={s.folio}>{folioContrato(contrato.folio)}{contrato.ciclo ? ` · Ciclo ${contrato.ciclo}` : ''}</Text>
 
         <Text style={s.intro}>
           En {contrato.lugar_firma ?? '—'}, a {fechaLarga(contrato.fecha)}, celebran el presente contrato, por una
@@ -174,7 +198,7 @@ export function ContratoPdf({
         </View>
 
         <Text style={s.pie} fixed>
-          {razon} · Contrato de fijación folio {contrato.folio} · Documento generado por Kenzly CASFA
+          {razon} · Contrato de fijación {folioContrato(contrato.folio)} · Documento generado por Kenzly CASFA
         </Text>
       </Page>
     </Document>

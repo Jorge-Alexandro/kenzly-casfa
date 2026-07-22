@@ -2,16 +2,17 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSessionResult } from '@/lib/session'
-import { getContrato } from '@/lib/data/contratos'
+import { getContrato, getConfig } from '@/lib/data/contratos'
 import {
   CONTRATO_ESTADO_LABEL,
   CONTRATO_ESTADO_BADGE,
   ARBITRAJE_LABEL,
   fmtDinero,
-  fmtCantidad,
+  folioContrato,
 } from '@/lib/contratos/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
+import FirmasContrato from '@/components/contratos/FirmasContrato'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,7 @@ export default async function ContratoPage({ params }: { params: { id: string } 
   if (result.kind === 'no-auth') redirect('/login')
   if (result.kind === 'no-membership') return <NoMembership />
 
-  const c = await getContrato(params.id)
+  const [c, config] = await Promise.all([getContrato(params.id), getConfig()])
   if (!c) notFound()
 
   return (
@@ -32,7 +33,7 @@ export default async function ContratoPage({ params }: { params: { id: string } 
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-semibold text-slate-800">Contrato #{c.folio}</h1>
+                <h1 className="text-xl font-semibold text-slate-800">{folioContrato(c.folio)}</h1>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${CONTRATO_ESTADO_BADGE[c.estado]}`}>
                   {CONTRATO_ESTADO_LABEL[c.estado]}
                 </span>
@@ -56,9 +57,13 @@ export default async function ContratoPage({ params }: { params: { id: string } 
           </div>
 
           {/* Términos */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Dato label="Cantidad" value={fmtCantidad(c.cantidad, c.unidad)} />
-            <Dato label={`Precio / ${c.unidad}`} value={fmtDinero(c.precio_unitario, c.moneda)} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <Dato label="Kilos" value={`${Number(c.cantidad).toLocaleString('es-MX')} kg`} />
+            <Dato
+              label="Quintales (sacos)"
+              value={c.quintales == null ? '—' : Number(c.quintales).toLocaleString('es-MX', { maximumFractionDigits: 3 })}
+            />
+            <Dato label="Precio / kilo" value={fmtDinero(c.precio_unitario, c.moneda)} />
             <Dato label="Importe" value={fmtDinero(c.importe, c.moneda)} destacado />
             <Dato label="Anticipo" value={fmtDinero(c.anticipo, c.moneda)} />
           </div>
@@ -95,10 +100,12 @@ export default async function ContratoPage({ params }: { params: { id: string } 
             </Bloque>
           )}
 
-          <p className="text-xs text-slate-400">
-            Las firmas electrónicas del vendedor y de CASFA se capturan en el siguiente paso; el PDF ya
-            incluye el sello de CASFA y los espacios de firma.
-          </p>
+          {/* Firma electrónica: las dos partes firman en pantalla */}
+          <FirmasContrato
+            contrato={c}
+            representante={config?.representante_nombre ?? 'Representante Legal'}
+            firmaRepresentanteGuardada={config?.firma_representante_url ?? null}
+          />
         </div>
       </div>
     </div>

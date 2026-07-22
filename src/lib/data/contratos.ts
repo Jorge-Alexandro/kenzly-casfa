@@ -14,7 +14,8 @@ export * from '@/lib/contratos/tipos'
 
 const ROW_COLS =
   'id, folio, fecha, vendedor_nombre, comunidad, municipio, especie, tipo,' +
-  ' cantidad, unidad, precio_unitario, moneda, importe, arbitraje, estado'
+  ' cantidad, unidad, precio_unitario, moneda, importe, quintales, factor_quintal,' +
+  ' arbitraje, estado'
 
 const DETALLE_COLS =
   ROW_COLS +
@@ -58,23 +59,36 @@ export async function getConfig(): Promise<ContratoConfig | null> {
   return (data as unknown as ContratoConfig) ?? null
 }
 
-/** Padrón para el selector de vendedor (con los datos que van al contrato). */
+/**
+ * Padrón de vendedores = el de ACOPIO (`acopio_proveedor`), el mismo que se usa
+ * al capturar una entrada. No el de certificación: a quien se le compra el café
+ * es a quien se le hace el contrato, y buena parte son empresas.
+ */
 export async function getVendedores(): Promise<VendedorLite[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
-    .from('productores')
-    .select('id, codigo, nombre_completo, comunidad, municipio, curp, ine')
-    .order('nombre_completo', { ascending: true })
+    .from('acopio_proveedor')
+    .select('id, nombre, comunidad, municipio')
+    .eq('activo', true)
+    .order('nombre', { ascending: true })
     .limit(5000)
   if (error) throw new Error(error.message)
-  return (data ?? []) as unknown as VendedorLite[]
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    nombre_completo: p.nombre as string,
+    comunidad: (p.comunidad ?? null) as string | null,
+    municipio: (p.municipio ?? null) as string | null,
+  }))
 }
 
 export async function getPlantillas(): Promise<ContratoPlantilla[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('contrato_plantilla')
-    .select('especie, tipo, nombre, unidad, moneda, calidad_texto, costalera_texto, condiciones_texto')
+    .select(
+      'especie, tipo, nombre, unidad, moneda, factor_quintal, calidad_texto,' +
+        ' costalera_texto, condiciones_texto',
+    )
     .eq('activo', true)
     .order('especie', { ascending: true })
     .order('tipo', { ascending: true })
