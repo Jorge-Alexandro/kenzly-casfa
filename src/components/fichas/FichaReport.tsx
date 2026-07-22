@@ -10,6 +10,7 @@ import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL } from '@/lib/types'
 import { MESES, normalizarDatos, type BitacoraActividad } from '@/lib/bitacora'
 import { HISTORIAL_CAMPOS } from '@/lib/historial'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
+import { leerPuntos, areaHa } from '@/lib/geo/puntos'
 import FichaEstadoControl from './FichaEstadoControl'
 
 // Section names that are handled specially (parcela table / evaluation block)
@@ -170,6 +171,9 @@ export default function FichaReport({
             ))}
           </tbody>
         </table>
+
+        {/* Coordenadas levantadas a pie en la inspección (si las hubo) */}
+        <PuntosGpsBloque respuestas={ficha.respuestas} parcelas={parcelas} />
 
         {/* Criterio sections as question|answer tables */}
         {criterioSecciones.map((sec) => (
@@ -335,6 +339,58 @@ function BitacoraAnexo({
   )
 }
 
+// Coordenadas caminadas en la inspección. Es lo que respalda el polígono ante
+// una auditoría: sin la lista de vértices, el mapa es un dibujo sin origen.
+function PuntosGpsBloque({
+  respuestas,
+  parcelas,
+}: {
+  respuestas: Record<string, unknown>
+  parcelas: { id: string; codigo_parcela: string; nombre: string | null }[]
+}) {
+  const conPuntos = parcelas
+    .map((p) => ({ parcela: p, puntos: leerPuntos(respuestas, p.id) }))
+    .filter((x) => x.puntos.length > 0)
+  if (conPuntos.length === 0) return null
+
+  return (
+    <div className="report-section mb-4">
+      <SectionTitle>Coordenadas levantadas en campo (GPS)</SectionTitle>
+      {conPuntos.map(({ parcela, puntos }) => (
+        <div key={parcela.id} className="mb-3">
+          <p className="mb-1 text-xs font-semibold text-slate-700">
+            Parcela: {codigoCorto(parcela.codigo_parcela, parcela.nombre)}
+            {parcela.nombre ? ` — ${parcela.nombre}` : ''} · {puntos.length} puntos
+            {puntos.length >= 3 && ` · ${areaHa(puntos).toFixed(3)} ha medidas`}
+          </p>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                <Th>#</Th>
+                <Th>Latitud</Th>
+                <Th>Longitud</Th>
+                <Th className="text-right">Precisión</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {puntos.map((pt, i) => (
+                <tr key={pt.t}>
+                  <Td>{i + 1}</Td>
+                  <Td>{pt.lat.toFixed(6)}</Td>
+                  <Td>{pt.lng.toFixed(6)}</Td>
+                  <Td className="text-right">
+                    {pt.acc != null ? `±${Math.round(pt.acc)} m` : '—'}
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // One numbered criterio section as a question | answer table.
 function CriterioSection({
   seccion,
@@ -350,14 +406,23 @@ function CriterioSection({
   const campos = seccion.campos.filter((c) => c.tipo !== 'signature')
   if (campos.length === 0) return null
 
-  const filaCampos = campos.filter((c) => c.tipo !== 'tabla')
-  const tablaCampos = campos.filter((c) => c.tipo === 'tabla')
+  // #D Con 2+ parcelas, lo que describe un predio se guardó por parcela
+  // (claves `campo::parcelaId`): hay que imprimirlo separado o el informe
+  // mostraría un solo juego de colindancias para varios predios.
+  const varias = parcelas.length > 1
+  const seccionEntera = varias && esSeccionPorParcela(seccion.nombre)
+  const globales = seccionEntera
+    ? []
+    : campos.filter((c) => !(varias && c.config?.por_parcela))
+  const deParcela = seccionEntera
+    ? campos
+    : varias
+      ? campos.filter((c) => c.config?.por_parcela)
+      : []
 
-  // #D Cuando la ficha tiene 2+ parcelas, la sección de la parcela se guardó
-  // por parcela (claves `campo::parcelaId`): la mostramos separada.
-  const porParcela = esSeccionPorParcela(seccion.nombre) && parcelas.length > 1
-
-  function bloque(sufijo: string) {
+  function bloque(lista: FormCampo[], sufijo: string) {
+    const filaCampos = lista.filter((c) => c.tipo !== 'tabla')
+    const tablaCampos = lista.filter((c) => c.tipo === 'tabla')
     const val = (c: FormCampo) => respuesta(`${c.nombre_interno}${sufijo}`)
     return (
       <>
@@ -380,19 +445,17 @@ function CriterioSection({
   return (
     <div className="report-section mb-4">
       <SectionTitle>{seccion.nombre}</SectionTitle>
-      {porParcela ? (
+      {globales.length > 0 && bloque(globales, '')}
+      {deParcela.length > 0 &&
         parcelas.map((p) => (
           <div key={p.id} className="mb-3">
-            <p className="mb-1 text-xs font-semibold text-slate-700">
+            <p className="mb-1 mt-2 text-xs font-semibold text-slate-700">
               Parcela: {codigoCorto(p.codigo_parcela, p.nombre)}
               {p.nombre ? ` — ${p.nombre}` : ''}
             </p>
-            {bloque(`::${p.id}`)}
+            {bloque(deParcela, `::${p.id}`)}
           </div>
-        ))
-      ) : (
-        bloque('')
-      )}
+        ))}
     </div>
   )
 }

@@ -69,14 +69,20 @@ const f = (nombre_interno, etiqueta, tipo = 'enum', opciones = SINO, config = {}
 const mostrarSi = (campo, igual = 'Sí') => ({ condicion: { campo, igual } })
 const enumOtro = ['Otro'] // se concatena a las opciones; activa opcion_otro
 
+// Campos que describen UN predio y no al productor: cuando la ficha lleva
+// varias parcelas se preguntan una vez por cada una (el wizard los agrupa en
+// sub-tarjetas y guarda las claves como `campo::parcelaId`).
+const porParcela = { por_parcela: true }
+
 // Colindancias de la parcela (CHESPAL): con qué productor colinda por punto
 // cardinal y qué cultivo tiene (o si es montaña/río/peñasco). Alimenta el
-// mapa imprimible de la parcela.
+// mapa imprimible de la parcela. Cada predio colinda con cosas distintas, así
+// que se preguntan por parcela.
 const COLINDANCIAS = [
-  f('colinda_norte', 'Colinda al NORTE con (productor y cultivo, o montaña/río/peñasco)', 'text'),
-  f('colinda_sur', 'Colinda al SUR con (productor y cultivo, o montaña/río/peñasco)', 'text'),
-  f('colinda_este', 'Colinda al ESTE con (productor y cultivo, o montaña/río/peñasco)', 'text'),
-  f('colinda_oeste', 'Colinda al OESTE con (productor y cultivo, o montaña/río/peñasco)', 'text'),
+  f('colinda_norte', 'Colinda al NORTE con (productor y cultivo, o montaña/río/peñasco)', 'text', null, porParcela),
+  f('colinda_sur', 'Colinda al SUR con (productor y cultivo, o montaña/río/peñasco)', 'text', null, porParcela),
+  f('colinda_este', 'Colinda al ESTE con (productor y cultivo, o montaña/río/peñasco)', 'text', null, porParcela),
+  f('colinda_oeste', 'Colinda al OESTE con (productor y cultivo, o montaña/río/peñasco)', 'text', null, porParcela),
 ]
 
 // Horas de la inspección (CHESPAL): inicio y término, al frente de la ficha.
@@ -248,15 +254,20 @@ const ROBUSTA = {
     {
       nombre: '8. Riesgos de contaminación',
       campos: [
-        f('contaminacion_riesgo', '¿Existe riesgo de contaminación por cultivos colindantes?'),
         f('sobre_que_almacena', '¿Sobre qué almacena sus sacos de café?', 'enum', ['Tarimas', 'Costales', ...enumOtro], { opcion_otro: true, multiple: true }),
+        // Riesgo, amortiguamiento y colindancias son de CADA predio, no del
+        // productor: van por parcela.
+        f('contaminacion_riesgo', '¿Existe riesgo de contaminación por cultivos colindantes?', 'enum', SINO, porParcela),
         f(
           'areas_amortiguamento',
           'Existen áreas de amortiguamiento que evitan contaminación por parcelas convencionales vecinas.',
+          'enum',
+          SINO,
+          porParcela,
         ),
         // Si hay área de amortiguamiento: distancia y especie sembrada (CHESPAL).
-        f('amortiguamiento_metros', '¿A cuántos metros de distancia está el área de amortiguamiento?', 'number', null, mostrarSi('areas_amortiguamento')),
-        f('amortiguamiento_especie', '¿Qué especie tiene sembrada en el área de amortiguamiento?', 'text', null, mostrarSi('areas_amortiguamento')),
+        f('amortiguamiento_metros', '¿A cuántos metros de distancia está el área de amortiguamiento?', 'number', null, { ...mostrarSi('areas_amortiguamento'), ...porParcela }),
+        f('amortiguamiento_especie', '¿Qué especie tiene sembrada en el área de amortiguamiento?', 'text', null, { ...mostrarSi('areas_amortiguamento'), ...porParcela }),
         ...COLINDANCIAS,
         f('basura_cafetal', '¿Existe en los cafetales presencia de basura doméstica y plásticos?'),
       ],
@@ -532,15 +543,20 @@ const ARABE = {
     {
       nombre: '8. Riesgos de contaminación',
       campos: [
-        f('riesgo_cultivos_colindantes', '¿Existe riesgo de contaminación por cultivos colindantes?'),
         f('sobre_que_almacena', '¿Sobre qué almacena sus sacos de café?', 'enum', ['Tarimas', 'Costales', ...enumOtro], { opcion_otro: true, multiple: true }),
+        // Riesgo, amortiguamiento y colindancias son de CADA predio, no del
+        // productor: van por parcela.
+        f('riesgo_cultivos_colindantes', '¿Existe riesgo de contaminación por cultivos colindantes?', 'enum', SINO, porParcela),
         f(
           'areas_amortiguamiento',
           'Existen áreas de amortiguamiento que evitan contaminación por parcelas convencionales vecinas.',
+          'enum',
+          SINO,
+          porParcela,
         ),
         // Si hay área de amortiguamiento: distancia y especie sembrada (CHESPAL).
-        f('amortiguamiento_metros', '¿A cuántos metros de distancia está el área de amortiguamiento?', 'number', null, mostrarSi('areas_amortiguamiento')),
-        f('amortiguamiento_especie', '¿Qué especie tiene sembrada en el área de amortiguamiento?', 'text', null, mostrarSi('areas_amortiguamiento')),
+        f('amortiguamiento_metros', '¿A cuántos metros de distancia está el área de amortiguamiento?', 'number', null, { ...mostrarSi('areas_amortiguamiento'), ...porParcela }),
+        f('amortiguamiento_especie', '¿Qué especie tiene sembrada en el área de amortiguamiento?', 'text', null, { ...mostrarSi('areas_amortiguamiento'), ...porParcela }),
         ...COLINDANCIAS,
         f('basura_plastico_cafetales', '¿Existe en los cafetales presencia de basura doméstica y plásticos?'),
       ],

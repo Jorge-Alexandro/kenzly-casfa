@@ -10,6 +10,7 @@ import { calcularPesada } from '@/lib/acopio/calculo.mjs'
 import AnalisisCalidad from './AnalisisCalidad'
 import Evidencias from './Evidencias'
 import EstadoControl from './EstadoControl'
+import EditarEntrada from './EditarEntrada'
 import { esSupervisor } from '@/lib/acopio/estado'
 import type { RolMembresia } from '@/lib/types'
 import {
@@ -28,11 +29,13 @@ export default function EntradaDetalle({
   entrada,
   tara,
   producto,
+  catalogo,
   rol,
 }: {
   entrada: Entrada
   tara: Record<string, number>
   producto: ProductoCatalogo | null
+  catalogo: ProductoCatalogo[]
   rol: RolMembresia
 }) {
   const router = useRouter()
@@ -41,8 +44,13 @@ export default function EntradaDetalle({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [borrando, setBorrando] = useState(false)
+  const [editando, setEditando] = useState(false)
+  // id de la pesada que se está corrigiendo (null = se está agregando una nueva)
+  const [editId, setEditId] = useState<string | null>(null)
   const cerrada = entrada.estado === 'completada' || entrada.estado === 'cancelada'
   const factorQuintal = producto?.factor_quintal ?? null
+  // Una boleta cerrada todavía se corrige, pero sólo un supervisor.
+  const puedeTocarPesadas = !cerrada || esSupervisor(rol)
 
   const captura = useMemo(
     () => ({
@@ -64,6 +72,26 @@ export default function EntradaDetalle({
   const set = (k: keyof typeof CAMPOS_CERO) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
 
+  /** Carga una pesada existente en el formulario para corregirla. */
+  function editarPesada(p: Entrada['pesadas'][number]) {
+    setError(null)
+    setEditId(p.id)
+    setAbierto(true)
+    setForm({
+      m1_sacos: String(p.m1_sacos ?? ''), m1_kgs: String(p.m1_kgs ?? ''),
+      m2_sacos: String(p.m2_sacos ?? ''), m2_kgs: String(p.m2_kgs ?? ''),
+      plastico: String(p.plastico ?? ''), yute: String(p.yute ?? ''),
+      henequen: String(p.henequen ?? ''),
+    })
+  }
+
+  function cancelarCaptura() {
+    setEditId(null)
+    setForm({ ...CAMPOS_CERO })
+    setError(null)
+  }
+
+  /** Agrega una pesada nueva o guarda la corrección de una existente. */
   async function agregar() {
     setError(null)
     if (prev.sacos_total <= 0 || prev.kg_brutos <= 0) {
@@ -71,13 +99,17 @@ export default function EntradaDetalle({
     }
     setGuardando(true)
     try {
-      const res = await fetch(`/api/acopio/entradas/${entrada.id}/pesadas`, {
-        method: 'POST',
+      const url = editId
+        ? `/api/acopio/pesadas/${editId}`
+        : `/api/acopio/entradas/${entrada.id}/pesadas`
+      const res = await fetch(url, {
+        method: editId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(captura),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'No se pudo agregar la pesada')
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar la pesada')
+      setEditId(null)
       setForm({ ...CAMPOS_CERO })
       router.refresh()
     } catch (e) {
@@ -138,6 +170,22 @@ export default function EntradaDetalle({
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {!editando && puedeTocarPesadas && (
+            <button
+              onClick={() => setEditando(true)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              ✎ Editar datos
+            </button>
+          )}
+          {!puedeTocarPesadas && (
+            <span
+              className="text-xs text-slate-400"
+              title="Sólo un admin o coordinador puede corregir una boleta ya cerrada"
+            >
+              Boleta cerrada · sólo lectura
+            </span>
+          )}
           <a
             href={`/api/acopio/entradas/${entrada.id}/pdf`}
             className="rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900"
@@ -161,6 +209,15 @@ export default function EntradaDetalle({
 
       {error && !abierto && (
         <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+      )}
+
+      {/* Corrección de los datos de la boleta */}
+      {editando && (
+        <EditarEntrada
+          entrada={entrada}
+          catalogo={catalogo}
+          onCerrar={() => setEditando(false)}
+        />
       )}
 
       {/* Flujo: avanzar / reabrir / cancelar (el servidor revalida) */}
@@ -200,9 +257,12 @@ export default function EntradaDetalle({
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
             Pesadas ({entrada.pesadas.length})
           </h2>
-          {!cerrada && (
+          {puedeTocarPesadas && (
             <button
-              onClick={() => setAbierto((v) => !v)}
+              onClick={() => {
+                if (abierto) cancelarCaptura()
+                setAbierto((v) => !v)
+              }}
               className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700"
             >
               {abierto ? 'Cerrar' : '+ Registrar pesada'}
@@ -221,12 +281,12 @@ export default function EntradaDetalle({
                   <th className="px-3 py-2 text-right">Tara</th>
                   <th className="px-3 py-2 text-right">Kg netos</th>
                   <th className="px-3 py-2 text-right">Quintales</th>
-                  {!cerrada && <th className="px-3 py-2" />}
+                  {puedeTocarPesadas && <th className="px-3 py-2" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {entrada.pesadas.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} className={editId === p.id ? 'bg-orange-50' : undefined}>
                     <td className="px-3 py-2 font-medium text-slate-700">{p.numero_pesada}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{p.sacos_total}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmt(p.kg_brutos)}</td>
@@ -235,11 +295,17 @@ export default function EntradaDetalle({
                     <td className="px-3 py-2 text-right tabular-nums">
                       {p.quintales == null ? <span className="text-slate-400">N/A</span> : fmt(p.quintales)}
                     </td>
-                    {!cerrada && (
-                      <td className="px-3 py-2 text-right">
+                    {puedeTocarPesadas && (
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        <button
+                          onClick={() => editarPesada(p)}
+                          className="text-xs font-medium text-orange-700 hover:underline"
+                        >
+                          Editar
+                        </button>
                         <button
                           onClick={() => borrar(p.id)}
-                          className="text-xs text-rose-500 hover:text-rose-700"
+                          className="ml-3 text-xs text-rose-500 hover:text-rose-700"
                         >
                           Borrar
                         </button>
@@ -252,9 +318,27 @@ export default function EntradaDetalle({
           </div>
         )}
 
-        {/* Captura de nueva pesada con preview en vivo */}
-        {abierto && !cerrada && (
+        {/* Captura o corrección de una pesada, con preview en vivo */}
+        {abierto && puedeTocarPesadas && (
           <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {editId
+                  ? `Corrigiendo la pesada #${entrada.pesadas.find((p) => p.id === editId)?.numero_pesada ?? ''}`
+                  : 'Nueva pesada'}
+              </h3>
+              {editId && (
+                <button onClick={cancelarCaptura} className="text-xs text-slate-500 hover:text-slate-700">
+                  Cancelar corrección
+                </button>
+              )}
+            </div>
+            {cerrada && (
+              <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                La boleta está <strong>{ESTADO_ENTRADA_LABEL[entrada.estado].toLowerCase()}</strong>. Al
+                guardar se recalculan los totales del recibo.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Num label="Máq 1 · sacos" v={form.m1_sacos} on={set('m1_sacos')} />
               <Num label="Máq 1 · kgs" v={form.m1_kgs} on={set('m1_kgs')} step="0.01" />
@@ -284,7 +368,7 @@ export default function EntradaDetalle({
                 disabled={guardando}
                 className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
               >
-                {guardando ? 'Guardando…' : 'Agregar pesada'}
+                {guardando ? 'Guardando…' : editId ? 'Guardar corrección' : 'Agregar pesada'}
               </button>
             </div>
           </div>

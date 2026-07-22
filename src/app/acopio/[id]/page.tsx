@@ -34,6 +34,7 @@ export default async function EntradaPage({ params }: { params: { id: string } }
             entrada={entrada}
             tara={tara}
             producto={producto}
+            catalogo={catalogo}
             rol={result.session.rol}
           />
         </div>

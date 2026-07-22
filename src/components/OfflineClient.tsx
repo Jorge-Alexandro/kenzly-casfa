@@ -13,12 +13,29 @@ import HistorialEditor from '@/components/historial/HistorialEditor'
 import { leerCatalogos } from '@/lib/offline/db'
 import { codigoCorto } from '@/lib/format'
 import ParcelaBuscador from '@/components/ParcelaBuscador'
+import { listarTodosPendientes, type PendienteResumen } from '@/lib/offline/sync'
 import type { ParcelaLite } from '@/lib/types'
 
 type Vista = 'menu' | 'ficha' | 'bitacora' | 'historial'
 
 export default function OfflineClient() {
   const [vista, setVista] = useState<Vista>('menu')
+  const [guardado, setGuardado] = useState<string | null>(null)
+  const [pendientes, setPendientes] = useState<PendienteResumen[]>([])
+
+  // Lo que lleva encolado el dispositivo. Sin esto el inspector no tiene forma
+  // de comprobar que su captura no se perdió.
+  useEffect(() => {
+    if (vista === 'menu') listarTodosPendientes().then(setPendientes).catch(() => {})
+  }, [vista])
+
+  // Los editores navegan al guardar, y sin señal esas rutas no existen: el
+  // service worker rebota aquí y parece que falló. Con el acuse se regresan al
+  // menú con la confirmación puesta.
+  function volverConAcuse(que: string) {
+    setGuardado(que)
+    setVista('menu')
+  }
 
   if (vista === 'ficha') {
     return (
@@ -30,14 +47,14 @@ export default function OfflineClient() {
   if (vista === 'bitacora') {
     return (
       <Marco titulo="Nueva bitácora (sin conexión)" onVolver={() => setVista('menu')}>
-        <BitacoraOffline />
+        <BitacoraOffline onGuardada={() => volverConAcuse('La bitácora')} />
       </Marco>
     )
   }
   if (vista === 'historial') {
     return (
       <Marco titulo="Nuevo historial (sin conexión)" onVolver={() => setVista('menu')}>
-        <HistorialOffline />
+        <HistorialOffline onGuardado={() => volverConAcuse('El historial')} />
       </Marco>
     )
   }
@@ -53,6 +70,12 @@ export default function OfflineClient() {
         No hay internet en este momento. Puedes seguir capturando: todo se guarda
         en el dispositivo y se sube solo cuando vuelva la señal.
       </p>
+
+      {guardado && (
+        <p className="mt-4 w-full max-w-sm rounded-md bg-green-50 px-4 py-2.5 text-sm text-green-800">
+          ✓ {guardado} quedó guardada en el dispositivo.
+        </p>
+      )}
 
       <div className="mt-6 flex w-full max-w-xs flex-col gap-2">
         <button
@@ -74,6 +97,27 @@ export default function OfflineClient() {
           Nuevo historial
         </button>
       </div>
+
+      {pendientes.length > 0 && (
+        <div className="mt-6 w-full max-w-sm rounded-lg border border-slate-200 bg-white p-3 text-left">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {pendientes.length} por subir
+          </p>
+          <ul className="space-y-1">
+            {pendientes.map((p, i) => (
+              <li key={i} className="flex items-baseline gap-2 text-xs">
+                <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">
+                  {p.tipo}
+                </span>
+                <span className="truncate text-slate-700">{p.etiqueta}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-slate-400">
+            Se suben solas al recuperar señal. No borres los datos del navegador.
+          </p>
+        </div>
+      )}
 
       <p className="mt-6 max-w-sm text-xs text-slate-400">
         Consejo: abre la app <strong>con internet</strong> al menos una vez al día
@@ -137,7 +181,7 @@ function SinDatos() {
   )
 }
 
-function BitacoraOffline() {
+function BitacoraOffline({ onGuardada }: { onGuardada: () => void }) {
   const est = useParcelasCache()
   if (est.fase === 'cargando')
     return <div className="p-10 text-center text-sm text-slate-500">Cargando parcelas…</div>
@@ -147,11 +191,12 @@ function BitacoraOffline() {
       mode="nueva"
       parcelas={est.parcelas}
       anioInicial={new Date().getFullYear()}
+      onGuardada={onGuardada}
     />
   )
 }
 
-function HistorialOffline() {
+function HistorialOffline({ onGuardado }: { onGuardado: () => void }) {
   const est = useParcelasCache()
   const [parcela, setParcela] = useState<ParcelaLite | null>(null)
 
@@ -166,6 +211,7 @@ function HistorialOffline() {
         parcelaId={parcela.id}
         parcelaLabel={`${parcela.nombre || cod} · ${cod}`}
         aniosIniciales={[]}
+        onGuardado={onGuardado}
       />
     )
   }

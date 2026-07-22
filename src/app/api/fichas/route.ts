@@ -9,6 +9,7 @@ import {
   ESTADOS_PERMITIDOS,
   validarParcelas,
   sincronizarEstimacion,
+  sincronizarPoligonos,
 } from '@/lib/fichas/guardar'
 
 export async function POST(request: Request) {
@@ -99,5 +100,11 @@ export async function POST(request: Request) {
     userId: session.userId,
   })
 
-  return NextResponse.json({ ok: true, ficha_id: ficha.id })
+  const { creados } = await sincronizarPoligonos(supabase, {
+    fichaId: ficha.id,
+    parcelaIds: parcela_ids,
+    respuestas: respuestasObj,
+  })
+
+  return NextResponse.json({ ok: true, ficha_id: ficha.id, poligonos: creados })
 }

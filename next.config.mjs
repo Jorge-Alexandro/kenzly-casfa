@@ -15,6 +15,15 @@ const nextConfig = {
   },
 }
 
+// Sello de esta compilación. `revision: null` significa "este archivo nunca
+// cambia" y solo es cierto para assets con hash en el nombre. /offline es una
+// PÁGINA: su HTML cambia en cada deploy y apunta a los chunks de ESE build. Con
+// revision null el service worker se quedaba con la primera copia para siempre,
+// y en campo salía una pantalla vieja, sin estilos y con botones que ya no
+// existían. Con un sello por build, cada deploy la reemplaza.
+const BUILD_ID =
+  process.env.VERCEL_GIT_COMMIT_SHA ?? String(Date.now())
+
 // PWA: el service worker se genera desde src/app/sw.ts. Se DESACTIVA en
 // desarrollo (el SW choca con HMR); para probar offline: `npm run build` + `npm start`.
 const withSerwist = withSerwistInit({
@@ -26,7 +35,7 @@ const withSerwist = withSerwistInit({
   // en campo necesita ver sin señal (imagen de referencia del tipo de sombra,
   // logo del header).
   additionalPrecacheEntries: [
-    { url: '/offline', revision: null },
+    { url: '/offline', revision: BUILD_ID },
     { url: '/referencias/tipo-sombra.jpg', revision: null },
     { url: '/logos/casfasa.png', revision: null },
   ],

@@ -58,7 +58,6 @@ export function soloHumedad(especie) {
  */
 export function calcularCalidad(captura = {}, cfg = {}) {
   const muestraG = num(cfg.muestra_g) || MUESTRA_G_DEFAULT
-  const analisisG = num(cfg.analisis_g) || ANALISIS_G_DEFAULT
   // Por compatibilidad se acepta `trillado` (nombre viejo) como "no aplica".
   const conRendimiento = cfg.rendimiento_aplica ?? cfg.trillado !== true
 
@@ -74,7 +73,16 @@ export function calcularCalidad(captura = {}, cfg = {}) {
       ? null
       : frac(captura.cerezo_g, muestraG)
 
-  // Tamaño y defectos: los cuatro montones de los 100 g de oro.
+  // BASE DEL ANÁLISIS: los cuatro montones se reparten EL ORO OBTENIDO, no unos
+  // 100 g aparte. Verificado contra las tarjetas de CASFA:
+  //   boleta 313 → oro 237 g = 179 + 14 + 11 + 33   (179/237 = 75.52 %)
+  //   boleta 317 → oro 177 g = 99.3 + 18.4 + 26.3 + 33 (99.3/177 = 56.10 %)
+  // Con una base fija de 100 g, teclear 179 g daría 179 %. Sólo cuando el café
+  // entró ya en oro (no hay trilla) se usa la base del catálogo.
+  const oroG = num(captura.oro_g)
+  const analisisG =
+    conRendimiento && oroG > 0 ? oroG : num(cfg.analisis_g) || ANALISIS_G_DEFAULT
+
   const montones = ['zaranda_16', 'zaranda_15', 'caracol', 'mancha']
   const out = { rendimiento, cerezo }
   let capturados = 0
@@ -148,11 +156,16 @@ function avisosCalidad(r, cfg, { capturados, sumaG, analisisG }) {
  */
 export function gramosDesdeFracciones(e = {}, cfg = {}) {
   const muestraG = num(e.muestra_g) || num(cfg.muestra_g) || MUESTRA_G_DEFAULT
-  const analisisG = num(e.analisis_g) || num(cfg.analisis_g) || ANALISIS_G_DEFAULT
   const conRendimiento = cfg.rendimiento_aplica ?? cfg.trillado !== true
   const g = (f, base) => (f == null ? null : red(Number(f) * base, 2))
+
+  const oro_g = conRendimiento ? g(e.rendimiento, muestraG) : null
+  // Misma base que al capturar: los cuatro montones salen del oro obtenido.
+  const analisisG =
+    oro_g && oro_g > 0 ? oro_g : num(e.analisis_g) || num(cfg.analisis_g) || ANALISIS_G_DEFAULT
+
   return {
-    oro_g: conRendimiento ? g(e.rendimiento, muestraG) : null,
+    oro_g,
     cerezo_g: conRendimiento ? g(e.cerezo, muestraG) : null,
     zaranda_16_g: g(e.zaranda_16, analisisG),
     zaranda_15_g: g(e.zaranda_15, analisisG),

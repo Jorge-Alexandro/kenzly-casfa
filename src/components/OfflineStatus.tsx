@@ -59,7 +59,16 @@ export default function OfflineStatus() {
     window.addEventListener('offline', onOffline)
 
     // Sincroniza al cargar si hay red (refresca catálogos para uso offline).
-    if (navigator.onLine) sincronizar()
+    if (navigator.onLine) {
+      sincronizar()
+      // Pide al navegador que revise si hay una versión nueva del service
+      // worker. Una tablet que vive días con la app abierta puede seguir
+      // sirviendo la pantalla offline de un deploy viejo si nadie la fuerza.
+      navigator.serviceWorker
+        ?.getRegistration()
+        .then((r) => r?.update())
+        .catch(() => {})
+    }
 
     // Refresca el conteo periódicamente (capturas en otra pestaña/SW).
     const t = setInterval(refrescarConteo, 15000)

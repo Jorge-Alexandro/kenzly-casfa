@@ -26,6 +26,7 @@ import SignaturePad from './SignaturePad'
 import EstimacionFichaSection from './EstimacionFichaSection'
 import EditarDatosCampo from './EditarDatosCampo'
 import FichaAnexos from './FichaAnexos'
+import PuntosGpsSection from './PuntosGpsSection'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import { enviarOEncolar, guardarEdicionFicha } from '@/lib/offline/sync'
 import { guardarBorrador, leerBorrador, borrarBorrador } from '@/lib/offline/db'
@@ -499,9 +500,33 @@ export default function FichaWizard({
             </div>
           </Card>
 
+          {/* Levantamiento del polígono caminando el predio. Va arriba porque
+              el recorrido se hace al llegar, antes de sentarse a contestar. */}
+          <Card title="Levantamiento del polígono (GPS)">
+            <PuntosGpsSection
+              parcelas={parcelasSeleccionadas}
+              respuestas={respuestas}
+              onPuntos={(clave, puntos) => setCampo(clave, puntos)}
+            />
+          </Card>
+
           {template.secciones.map((sec) => {
-            const porParcela =
-              esSeccionPorParcela(sec.nombre) && parcelasSeleccionadas.length > 1
+            // Con una sola parcela nada se repite: las claves quedan planas.
+            const varias = parcelasSeleccionadas.length > 1
+            // La sección entera describe la parcela (variedades, producción…).
+            const seccionEntera = varias && esSeccionPorParcela(sec.nombre)
+            // Dentro de una sección mixta, los campos marcados `por_parcela`
+            // (colindancias, amortiguamiento) también se preguntan uno por
+            // predio: cada parcela colinda con cosas distintas.
+            const globales = seccionEntera
+              ? []
+              : sec.campos.filter((c) => !(varias && c.config?.por_parcela))
+            const deParcela = seccionEntera
+              ? sec.campos
+              : varias
+                ? sec.campos.filter((c) => c.config?.por_parcela)
+                : []
+
             return (
               <Card key={sec.id} title={sec.nombre}>
                 {sec.nombre === 'Estimación de cosecha' ? (
@@ -510,47 +535,11 @@ export default function FichaWizard({
                     value={respuestas}
                     onResult={(partial) => setRespuestas((r) => ({ ...r, ...partial }))}
                   />
-                ) : porParcela ? (
-                  // #D Una sub-tarjeta por parcela (variedades/producción separados).
-                  <div className="space-y-4">
-                    {parcelasSeleccionadas.map((parcela) => (
-                      <div
-                        key={parcela.id}
-                        className="rounded-lg border border-orange-100 bg-orange-50/40 p-3"
-                      >
-                        <p className="mb-3 text-sm font-semibold text-orange-800">
-                          Parcela: {codigoCorto(parcela.codigo_parcela, parcela.nombre)}
-                          {parcela.nombre ? ` — ${parcela.nombre}` : ''}
-                        </p>
-                        <div className="space-y-4">
-                          {sec.campos
-                            .filter((campo) => {
-                              const c = campo.config?.condicion
-                              return (
-                                !c ||
-                                respuestas[`${c.campo}::${parcela.id}`] === c.igual ||
-                                respuestas[c.campo] === c.igual
-                              )
-                            })
-                            .map((campo) => {
-                              const k = `${campo.nombre_interno}::${parcela.id}`
-                              return (
-                                <DynamicField
-                                  key={campo.id}
-                                  campo={campo}
-                                  value={respuestas[k] ?? null}
-                                  onChange={(v) => setCampo(k, v)}
-                                />
-                              )
-                            })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 ) : (
                   <div className="space-y-4">
-                    {sec.campos
-                      // #6 Visibilidad condicional: ocultar si la condición no se cumple.
+                    {/* Campos del productor / de la ficha completa */}
+                    {globales
+                      // #6 Visibilidad condicional: ocultar si no se cumple.
                       .filter((campo) => {
                         const c = campo.config?.condicion
                         return !c || respuestas[c.campo] === c.igual
@@ -563,6 +552,44 @@ export default function FichaWizard({
                           onChange={(v) => setCampo(campo.nombre_interno, v)}
                         />
                       ))}
+
+                    {/* Una sub-tarjeta por parcela */}
+                    {deParcela.length > 0 &&
+                      parcelasSeleccionadas.map((parcela) => {
+                        const visibles = deParcela.filter((campo) => {
+                          const c = campo.config?.condicion
+                          return (
+                            !c ||
+                            respuestas[`${c.campo}::${parcela.id}`] === c.igual ||
+                            respuestas[c.campo] === c.igual
+                          )
+                        })
+                        if (visibles.length === 0) return null
+                        return (
+                          <div
+                            key={parcela.id}
+                            className="rounded-lg border border-orange-100 bg-orange-50/40 p-3"
+                          >
+                            <p className="mb-3 text-sm font-semibold text-orange-800">
+                              Parcela: {codigoCorto(parcela.codigo_parcela, parcela.nombre)}
+                              {parcela.nombre ? ` — ${parcela.nombre}` : ''}
+                            </p>
+                            <div className="space-y-4">
+                              {visibles.map((campo) => {
+                                const k = `${campo.nombre_interno}::${parcela.id}`
+                                return (
+                                  <DynamicField
+                                    key={campo.id}
+                                    campo={campo}
+                                    value={respuestas[k] ?? null}
+                                    onChange={(v) => setCampo(k, v)}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
                   </div>
                 )}
               </Card>

@@ -10,6 +10,7 @@ import {
   ESTADOS_PERMITIDOS,
   validarParcelas,
   sincronizarEstimacion,
+  sincronizarPoligonos,
 } from '@/lib/fichas/guardar'
 
 const CERRADOS = ['aprobada', 'pdf_generado']
@@ -114,5 +115,11 @@ export async function PATCH(
     userId: session.userId,
   })
 
-  return NextResponse.json({ ok: true, ficha_id: params.id })
+  const { creados } = await sincronizarPoligonos(supabase, {
+    fichaId: params.id,
+    parcelaIds: parcela_ids,
+    respuestas: respuestasObj,
+  })
+
+  return NextResponse.json({ ok: true, ficha_id: params.id, poligonos: creados })
 }

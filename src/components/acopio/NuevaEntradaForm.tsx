@@ -8,6 +8,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ProductoCatalogo, ProductorLite } from '@/lib/acopio/tipos'
 
+/** Minúsculas y sin acentos, para que 'sanchez' encuentre 'Sánchez'. */
+const norm = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
 export default function NuevaEntradaForm({
   catalogo,
   productores,
@@ -45,6 +49,9 @@ export default function NuevaEntradaForm({
       if (!res.ok) throw new Error(data.error ?? 'No se pudo crear')
       setProvs((ps) => [data.proveedor, ...ps.filter((p) => p.id !== data.proveedor.id)])
       setProductorId(data.proveedor.id)
+      // Limpiamos la búsqueda: si el texto anterior no coincide con el nombre
+      // nuevo, el proveedor quedaría seleccionado pero fuera de la lista visible.
+      setBusqueda('')
       setAltaAbierta(false)
       setNuevo({ nombre: '', comunidad: '', municipio: '' })
     } catch (e) {
@@ -63,12 +70,15 @@ export default function NuevaEntradaForm({
     [catalogo, especie],
   )
 
+  // Busca por nombre, comunidad y municipio, sin acentos (el padrón escribe
+  // 'Sánchez' y el capturista teclea 'sanchez'). NO se recorta la lista: con un
+  // tope, los proveedores que caían fuera eran imposibles de seleccionar.
   const proveedores = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    const base = q
-      ? provs.filter((p) => p.nombre_completo.toLowerCase().includes(q))
-      : provs
-    return base.slice(0, 50)
+    const q = norm(busqueda)
+    if (!q) return provs
+    return provs.filter((p) =>
+      norm([p.nombre_completo, p.comunidad, p.municipio].filter(Boolean).join(' ')).includes(q),
+    )
   }, [provs, busqueda])
 
   const proveedorSel = provs.find((p) => p.id === productorId) ?? null
@@ -131,7 +141,7 @@ export default function NuevaEntradaForm({
         <Campo label="Proveedor (padrón de acopio)">
           <input
             type="text"
-            placeholder="Buscar proveedor por nombre…"
+            placeholder="Buscar por nombre, comunidad o municipio…"
             value={busqueda}
             onChange={(e) => {
               setBusqueda(e.target.value)
@@ -152,8 +162,18 @@ export default function NuevaEntradaForm({
               </option>
             ))}
           </select>
+          {proveedores.length === 0 ? (
+            <p className="mt-1 text-xs text-amber-700">
+              Ningún proveedor coincide con «{busqueda}». Dalo de alta con “+ Nuevo proveedor”.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400">
+              {proveedores.length} de {provs.length} proveedores
+              {proveedorSel ? ' · seleccionado: ' + proveedorSel.nombre_completo : ''}
+            </p>
+          )}
           {proveedorSel && (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500">
               {[proveedorSel.comunidad, proveedorSel.municipio].filter(Boolean).join(' · ') ||
                 'Sin comunidad/municipio en el padrón'}
             </p>

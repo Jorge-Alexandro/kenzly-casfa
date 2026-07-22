@@ -173,14 +173,15 @@ export default function AnalisisCalidad({
             </p>
           )}
 
-          {/* Tamaño y defectos: los 100 g de oro */}
+          {/* Tamaño y defectos: se reparten el ORO OBTENIDO (no unos 100 g aparte) */}
           {!esCacao && (
             <div>
               <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                {analisisG} g de café oro — tamaño y defectos
+                Tamaño y defectos — sobre {r.analisis_g ?? analisisG} g de café oro
               </h3>
               <p className="mb-2 text-xs text-slate-400">
-                Los cuatro montones se reparten los mismos {analisisG} g, así que deben sumarlos.
+                Los cuatro montones se reparten {conRendimiento ? 'el café oro obtenido' : `los ${analisisG} g`},
+                así que deben sumar {r.analisis_g ?? analisisG} g.
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Gramos label="Zaranda 16" v={form.zaranda_16_g} on={set('zaranda_16_g')} res={pct(r.zaranda_16)} />

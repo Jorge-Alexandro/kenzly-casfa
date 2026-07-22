@@ -204,6 +204,11 @@ export interface CampoConfig {
   // "1 tonelada" y la app calcula el total en la unidad de la ficha.
   // 'kg' (árabe) o 'qq' (robusta; 1 qq = 57.5 kg).
   convertidor?: 'kg' | 'qq'
+  // El campo describe UNA parcela, no al productor: con varias parcelas en la
+  // ficha se repite una vez por cada una (claves `campo::parcelaId`). Las
+  // colindancias y el área de amortiguamiento son el caso típico — cada predio
+  // colinda con cosas distintas.
+  por_parcela?: boolean
 }
 
 export interface FormCampo {

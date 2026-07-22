@@ -3,6 +3,7 @@
 // estimación exactamente igual: si vive en un solo lugar no se desincronizan.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { estimarCafe, estimarCacao, CACAO_IM_DEFAULT } from '@/lib/agroecologia/estimacion.mjs'
+import { aGeoJSON, huellaPuntos, leerPuntos } from '@/lib/geo/puntos'
 
 export const TIPOS = ['robusta', 'arabe', 'tropicales']
 export const ESTADOS_PERMITIDOS = ['borrador', 'en_revision']
@@ -109,4 +110,68 @@ export async function sincronizarEstimacion(
     { onConflict: 'parcela_id,ciclo,cultivo' },
   )
   if (error) console.error('[fichas] estimacion_cosecha upsert:', error.message)
+}
+
+/**
+ * Convierte los puntos GPS caminados en la ficha en el polígono de la parcela.
+ *
+ * Usa el mismo RPC que GeoSIC (upsert_parcela_poligono), así que el polígono
+ * levantado a pie entra por la misma puerta que un KML: se versiona, PostGIS
+ * recalcula área/perímetro/centroide y el estado de validación sale solo.
+ *
+ * La huella de los puntos queda en motivo_cambio para no crear una versión
+ * nueva cada vez que se reguarda la misma ficha sin haber caminado nada — si
+ * no, corregir una falta de ortografía generaría una versión del polígono.
+ *
+ * Best-effort: un fallo aquí no debe tumbar el guardado de la ficha.
+ */
+export async function sincronizarPoligonos(
+  supabase: SupabaseClient,
+  opts: {
+    fichaId: string
+    parcelaIds: string[]
+    respuestas: Record<string, unknown>
+  },
+): Promise<{ creados: number }> {
+  let creados = 0
+
+  for (const parcelaId of opts.parcelaIds) {
+    const puntos = leerPuntos(opts.respuestas, parcelaId)
+    const geojson = aGeoJSON(puntos)
+    if (!geojson) continue // menos de 3 puntos: no hay polígono que armar
+
+    const sello = `Ficha ${opts.fichaId.slice(0, 8)} · ${puntos.length} puntos GPS · ${huellaPuntos(puntos)}`
+
+    // ¿El polígono activo ya salió de estos mismos puntos?
+    const { data: activo } = await supabase
+      .from('parcela_poligonos')
+      .select('id, motivo_cambio')
+      .eq('parcela_id', parcelaId)
+      .eq('activo', true)
+      .maybeSingle()
+    if (activo?.motivo_cambio === sello) continue
+
+    const { error } = await supabase.rpc('upsert_parcela_poligono', {
+      p_parcela_id: parcelaId,
+      p_geojson: geojson,
+      p_archivo_url: null,
+      p_es_kmz: false,
+      p_metodo: 'gps',
+    })
+    if (error) {
+      console.error('[fichas] upsert_parcela_poligono:', error.message)
+      continue
+    }
+
+    // El RPC no recibe el motivo: se sella la versión recién creada.
+    await supabase
+      .from('parcela_poligonos')
+      .update({ motivo_cambio: sello })
+      .eq('parcela_id', parcelaId)
+      .eq('activo', true)
+
+    creados++
+  }
+
+  return { creados }
 }
