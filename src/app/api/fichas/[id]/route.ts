@@ -12,9 +12,97 @@ import {
   sincronizarEstimacion,
   sincronizarPoligonos,
 } from '@/lib/fichas/guardar'
+import { puedeAnular, puedeBorrarDefinitivo } from '@/lib/ficha-workflow'
+import type { EstadoFicha } from '@/lib/types'
 
 const CERRADOS = ['aprobada', 'pdf_generado']
 const PUEDEN_REABRIR = ['admin', 'coordinador']
+
+/**
+ * DELETE /api/fichas/[id] — retirar una ficha de circulación.
+ *   ?motivo=...        anula (deja rastro; es el camino normal)
+ *   ?definitivo=1      borra de verdad; solo admin y solo borrador/anulada
+ *
+ * Una ficha aprobada sustenta la certificación ante MAYACERT: no se borra,
+ * se anula con motivo. Lo que sí se retira en ambos casos es la estimación de
+ * cosecha que esta ficha alimentó, porque si no el LPA seguiría contando una
+ * inspección que ya no vale.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  const url = new URL(request.url)
+  const definitivo = url.searchParams.get('definitivo') === '1'
+  const motivo = (url.searchParams.get('motivo') ?? '').trim()
+
+  const supabase = await createClient()
+  const { data: ficha, error: fErr } = await supabase
+    .from('fichas')
+    .select('id, estado')
+    .eq('id', params.id)
+    .maybeSingle()
+  if (fErr) return NextResponse.json({ error: fErr.message }, { status: 400 })
+  if (!ficha) return NextResponse.json({ error: 'Ficha no encontrada' }, { status: 404 })
+
+  const estado = ficha.estado as EstadoFicha
+
+  if (definitivo) {
+    if (!puedeBorrarDefinitivo(estado, session.rol)) {
+      return NextResponse.json(
+        {
+          error:
+            'Solo un admin puede borrar, y solo borradores o fichas ya anuladas. Anula la ficha en vez de borrarla.',
+        },
+        { status: 403 },
+      )
+    }
+  } else {
+    if (!puedeAnular(estado, session.rol)) {
+      return NextResponse.json(
+        { error: 'Tu rol no puede anular una ficha en este estado' },
+        { status: 403 },
+      )
+    }
+    if (motivo.length < 4) {
+      return NextResponse.json(
+        { error: 'Escribe el motivo de la anulación' },
+        { status: 400 },
+      )
+    }
+  }
+
+  // La estimación que salió de esta ficha deja de valer en los dos casos.
+  const { error: eErr } = await supabase
+    .from('estimacion_cosecha')
+    .delete()
+    .eq('muestra->>ficha_id', params.id)
+  if (eErr) console.error('[fichas] limpiar estimacion:', eErr.message)
+
+  if (definitivo) {
+    // ficha_parcelas cae por cascada.
+    const { error } = await supabase.from('fichas').delete().eq('id', params.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ ok: true, borrada: true })
+  }
+
+  const { error } = await supabase
+    .from('fichas')
+    .update({
+      estado: 'anulada',
+      anulada_motivo: motivo,
+      anulada_por: session.userId,
+      anulada_en: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  return NextResponse.json({ ok: true, anulada: true })
+}
 
 export async function PATCH(
   request: Request,
@@ -43,6 +131,13 @@ export async function PATCH(
     .maybeSingle()
   if (fErr) return NextResponse.json({ error: fErr.message }, { status: 400 })
   if (!actual) return NextResponse.json({ error: 'Ficha no encontrada' }, { status: 404 })
+
+  if (actual.estado === 'anulada') {
+    return NextResponse.json(
+      { error: 'Esta ficha está anulada. Reactívala antes de editarla.' },
+      { status: 409 },
+    )
+  }
 
   if (CERRADOS.includes(actual.estado) && !PUEDEN_REABRIR.includes(session.rol)) {
     return NextResponse.json(

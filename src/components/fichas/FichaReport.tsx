@@ -12,6 +12,7 @@ import { HISTORIAL_CAMPOS } from '@/lib/historial'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import { leerPuntos, areaHa } from '@/lib/geo/puntos'
 import FichaEstadoControl from './FichaEstadoControl'
+import FichaRetirar from './FichaRetirar'
 
 // Section names that are handled specially (parcela table / evaluation block)
 // instead of the generic question|answer table.
@@ -43,7 +44,8 @@ export default function FichaReport({
           <FichaEstadoControl fichaId={ficha.id} estado={ficha.estado} rol={rol} />
         </div>
         <div className="flex items-center gap-2">
-          {rol !== 'solo_lectura' && (
+          <FichaRetirar fichaId={ficha.id} estado={ficha.estado} rol={rol} />
+          {rol !== 'solo_lectura' && ficha.estado !== 'anulada' && (
             <Link
               href={`/fichas/${ficha.id}/editar`}
               className="rounded-md border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-700 hover:bg-orange-100"
@@ -107,6 +109,21 @@ export default function FichaReport({
             <strong>Estado:</strong> {ESTADO_FICHA_LABEL[ficha.estado]}
           </span>
         </div>
+
+        {/* Si está anulada tiene que decirlo el papel, no solo la pantalla:
+            es lo primero que debe ver quien la tenga impresa en la mano. */}
+        {ficha.estado === 'anulada' && (
+          <div className="mb-4 border-2 border-slate-400 px-3 py-2 text-center">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-700">
+              Ficha anulada — sin validez
+            </p>
+            {data.anulada_motivo && (
+              <p className="mt-0.5 text-xs text-slate-600">
+                Motivo: {data.anulada_motivo}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* 1. Datos generales */}
         <SectionTitle>1. Datos generales</SectionTitle>

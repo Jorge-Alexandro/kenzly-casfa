@@ -145,7 +145,7 @@ export async function getFichaDetalle(
     .from('fichas')
     .select(
       `id, tipo, estado, fecha_inspeccion, area_cultivada_ha, resultado_evaluacion,
-       created_at, respuestas, template_id, inspector_id, productor_id,
+       created_at, respuestas, template_id, inspector_id, productor_id, anulada_motivo,
        productores ( nombre_completo, codigo, comunidad, municipio ),
        ficha_parcelas ( parcelas ( id, codigo_parcela, nombre, superficie_declarada_ha ) )`,
     )
@@ -222,6 +222,7 @@ export async function getFichaDetalle(
       respuestas: ficha.respuestas ?? {},
     },
     productor_id: ficha.productor_id,
+    anulada_motivo: ficha.anulada_motivo ?? null,
     productor: {
       nombre_completo: prod?.nombre_completo ?? '—',
       codigo: prod?.codigo ?? '',

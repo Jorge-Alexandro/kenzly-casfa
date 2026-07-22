@@ -44,9 +44,33 @@ export function accionesPermitidas(
       return rol === 'admin'
         ? [{ to: 'aprobada', label: 'Reabrir', tono: 'neutral' }]
         : []
+    case 'anulada':
+      // Anular es reversible: si se anuló por error, el coordinador la revive
+      // como borrador. Lo que no se puede es hacerla desaparecer sin rastro.
+      return esCoordinador(rol)
+        ? [{ to: 'borrador', label: 'Reactivar', tono: 'neutral' }]
+        : []
     default:
       return []
   }
+}
+
+/** ¿Quién puede anular una ficha, y desde qué estado? */
+export function puedeAnular(estado: EstadoFicha, rol: RolMembresia): boolean {
+  if (estado === 'anulada') return false
+  // Una ficha aprobada o con PDF entregado ya sustenta la certificación: solo
+  // el admin la anula, y siempre queda con motivo.
+  if (estado === 'aprobada' || estado === 'pdf_generado') return rol === 'admin'
+  return esCoordinador(rol)
+}
+
+/**
+ * ¿Se puede borrar de verdad? Solo un admin, y solo un borrador o algo ya
+ * anulado: nada de eso sustenta una certificación. Lo demás se anula, porque
+ * un expediente que desaparece no se puede explicar en una auditoría.
+ */
+export function puedeBorrarDefinitivo(estado: EstadoFicha, rol: RolMembresia): boolean {
+  return rol === 'admin' && (estado === 'borrador' || estado === 'anulada')
 }
 
 // Color del badge por estado (para la barra de flujo).
@@ -56,4 +80,5 @@ export const ESTADO_FICHA_BADGE: Record<EstadoFicha, string> = {
   aprobada: 'bg-green-100 text-green-700',
   pdf_generado: 'bg-sky-100 text-sky-700',
   requiere_correccion: 'bg-red-100 text-red-700',
+  anulada: 'bg-slate-200 text-slate-500 line-through',
 }

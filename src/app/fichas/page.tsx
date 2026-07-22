@@ -20,6 +20,7 @@ const ESTADO_COLOR: Record<EstadoFicha, string> = {
   aprobada: 'bg-green-100 text-green-700',
   pdf_generado: 'bg-sky-100 text-sky-700',
   requiere_correccion: 'bg-red-100 text-red-700',
+  anulada: 'bg-slate-200 text-slate-500',
 }
 
 export default async function FichasPage() {
@@ -70,7 +71,11 @@ export default async function FichasPage() {
                   {fichas.map((f) => (
                     <tr
                       key={f.id}
-                      className="border-t border-slate-50 hover:bg-slate-50"
+                      // Una ficha anulada sigue en el expediente, pero no debe
+                      // competir visualmente con las que sí valen.
+                      className={`border-t border-slate-50 hover:bg-slate-50 ${
+                        f.estado === 'anulada' ? 'opacity-55' : ''
+                      }`}
                     >
                       <td className="px-4 py-2.5 font-medium text-slate-800">
                         {TIPO_FICHA_LABEL[f.tipo]}
@@ -100,14 +105,15 @@ export default async function FichasPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                        {result.session.rol !== 'solo_lectura' && (
-                          <Link
-                            href={`/fichas/${f.id}/editar`}
-                            className="mr-3 text-sm font-medium text-slate-500 hover:text-slate-700"
-                          >
-                            Editar
-                          </Link>
-                        )}
+                        {result.session.rol !== 'solo_lectura' &&
+                          f.estado !== 'anulada' && (
+                            <Link
+                              href={`/fichas/${f.id}/editar`}
+                              className="mr-3 text-sm font-medium text-slate-500 hover:text-slate-700"
+                            >
+                              Editar
+                            </Link>
+                          )}
                         <Link
                           href={`/fichas/${f.id}`}
                           className="text-sm font-medium text-orange-600 hover:text-orange-700"

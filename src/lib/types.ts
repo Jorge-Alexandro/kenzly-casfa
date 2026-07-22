@@ -3,7 +3,13 @@
 
 export type TipoCultivo = 'cafe' | 'tropical' | 'mixto'
 export type TipoFicha = 'robusta' | 'arabe' | 'tropicales'
-export type EstadoFicha = 'borrador' | 'en_revision' | 'aprobada' | 'pdf_generado' | 'requiere_correccion'
+export type EstadoFicha =
+  | 'borrador'
+  | 'en_revision'
+  | 'aprobada'
+  | 'pdf_generado'
+  | 'requiere_correccion'
+  | 'anulada'
 export type RolMembresia = 'admin' | 'coordinador' | 'inspector' | 'solo_lectura'
 export type MetodoLevantamiento = 'google_earth' | 'gps' | 'qgis' | 'otro'
 
@@ -320,6 +326,8 @@ export interface FichaDetalle {
     respuestas: Record<string, unknown>
   }
   productor_id: string
+  /** Por qué se anuló, si lo está. Sale impreso en el informe. */
+  anulada_motivo: string | null
   productor: {
     nombre_completo: string
     codigo: string
@@ -346,6 +354,7 @@ export const ESTADO_FICHA_LABEL: Record<EstadoFicha, string> = {
   aprobada: 'Aprobada',
   pdf_generado: 'PDF generado',
   requiere_correccion: 'Requiere corrección',
+  anulada: 'Anulada',
 }
 
 export const TIPO_FICHA_LABEL: Record<TipoFicha, string> = {
