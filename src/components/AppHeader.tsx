@@ -9,20 +9,23 @@ import { createClient } from '@/lib/supabase/client'
 import type { RolMembresia } from '@/lib/types'
 import OfflineStatus from './OfflineStatus'
 
-// soloAdmin: pestañas administrativas que NO ve el SIC (coordinador/inspector).
-// El SIC solo ve su set operativo; el admin ve todo.
-const TABS: { href: string; label: string; soloAdmin?: boolean }[] = [
-  { href: '/panel', label: 'Panel' },
+// Visibilidad de pestañas por rol:
+//  · soloAdmin  → módulos administrativos que NO ve el SIC (inspector/coordinador).
+//  · contador   → Contabilidad ve un set acotado (Acopio/Ventas/CRM/Contabilidad),
+//    NO el set del SIC (GeoSIC, certificación, fichas…). El admin ve todo.
+const TABS: { href: string; label: string; soloAdmin?: boolean; contador?: boolean }[] = [
+  { href: '/panel', label: 'Panel', contador: true },
   { href: '/geosic', label: 'GeoSIC' },
   { href: '/satelite', label: 'Satélite' },
   { href: '/productores', label: 'Productores' },
   { href: '/certificacion', label: 'Certificación' },
   { href: '/lpa', label: 'LPA' },
   { href: '/certificados', label: 'Certificados' },
-  { href: '/acopio', label: 'Acopio', soloAdmin: true },
-  { href: '/ventas', label: 'Ventas', soloAdmin: true },
+  { href: '/acopio', label: 'Acopio', soloAdmin: true, contador: true },
+  { href: '/contabilidad', label: 'Contabilidad', soloAdmin: true, contador: true },
+  { href: '/ventas', label: 'Ventas', soloAdmin: true, contador: true },
   { href: '/contratos', label: 'Contratos', soloAdmin: true },
-  { href: '/crm', label: 'CRM', soloAdmin: true },
+  { href: '/crm', label: 'CRM', soloAdmin: true, contador: true },
   { href: '/estimacion', label: 'Estimación' },
   { href: '/agroecologia', label: 'Agroecología', soloAdmin: true },
   { href: '/fichas', label: 'Fichas' },
@@ -43,9 +46,12 @@ export default function AppHeader({
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // El admin ve todas las pestañas; el resto (coordinador/inspector/solo_lectura)
-  // solo el set del SIC (sin los módulos administrativos).
-  const tabs = TABS.filter((t) => !t.soloAdmin || rol === 'admin')
+  // El admin ve todo; el contador su set contable; el SIC su set operativo.
+  const tabs = TABS.filter((t) => {
+    if (rol === 'admin') return true
+    if (rol === 'contador') return t.contador === true
+    return !t.soloAdmin
+  })
 
   async function signOut() {
     const supabase = createClient()

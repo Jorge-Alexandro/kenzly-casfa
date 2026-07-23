@@ -10,7 +10,7 @@ export type EstadoFicha =
   | 'pdf_generado'
   | 'requiere_correccion'
   | 'anulada'
-export type RolMembresia = 'admin' | 'coordinador' | 'inspector' | 'solo_lectura'
+export type RolMembresia = 'admin' | 'coordinador' | 'inspector' | 'solo_lectura' | 'contador'
 export type MetodoLevantamiento = 'google_earth' | 'gps' | 'qgis' | 'otro'
 
 export type EstadoValidacion =
