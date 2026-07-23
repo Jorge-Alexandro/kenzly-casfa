@@ -24,3 +24,16 @@ export const fmtMXN = (n: number | null | undefined) =>
 
 export const fmtNum = (n: number | null | undefined, d = 2) =>
   n == null ? '—' : Number(n).toLocaleString('es-MX', { maximumFractionDigits: d })
+
+/** Costo de un corte de maquila: lo pagado por las boletas ÷ el oro obtenido. */
+export interface MaquilaCosto {
+  id: string
+  numero: number | null
+  especie: string | null
+  fecha_corte: string | null
+  boletas: number
+  boletas_con_precio: number
+  importe_total: number // suma del importe de sus boletas (materia prima)
+  oro_kg: number // kg de oro exportación obtenidos
+  costo_kg_oro: number | null // importe_total ÷ oro_kg
+}

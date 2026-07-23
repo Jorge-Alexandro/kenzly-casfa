@@ -63,7 +63,10 @@ const pct = (v: number | null) => (v == null ? null : redondear(v * 100, 2))
 const redondear = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d
 const num = (v: number | null | undefined) => Number(v ?? 0)
 
-export async function buildAcopioExport(f: FiltrosAcopio): Promise<{
+export async function buildAcopioExport(
+  f: FiltrosAcopio,
+  incluirCosto = false,
+): Promise<{
   sheets: Sheet[]
   resumen: { entradas: number; pesadas: number; kg_netos: number }
 }> {
@@ -111,6 +114,33 @@ export async function buildAcopioExport(f: FiltrosAcopio): Promise<{
   const numPesadas = new Map<string, number>()
   for (const p of pesadas) numPesadas.set(p.entrada_id, (numPesadas.get(p.entrada_id) ?? 0) + 1)
 
+  // Costo por boleta (sólo Contabilidad). La RLS de entrada_costo devuelve filas
+  // únicamente si el que exporta es admin/contador; para el resto ni se pide.
+  const costoPorEntrada = new Map<string, { precio_kg: number | null; importe: number | null; pagado: number }>()
+  if (incluirCosto) {
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data: c } = await supabase
+        .from('entrada_costo')
+        .select('entrada_id, precio_kg, importe, importe_pagado')
+        .in('entrada_id', ids.slice(i, i + 100))
+      for (const r of c ?? []) {
+        costoPorEntrada.set(r.entrada_id as string, {
+          precio_kg: r.precio_kg == null ? null : Number(r.precio_kg),
+          importe: r.importe == null ? null : Number(r.importe),
+          pagado: r.importe_pagado == null ? 0 : Number(r.importe_pagado),
+        })
+      }
+    }
+  }
+  const costoCols = incluirCosto ? ['Precio/kg', 'Importe', 'Importe pagado', 'Saldo'] : []
+  const costoDe = (id: string): CellValue[] => {
+    if (!incluirCosto) return []
+    const c = costoPorEntrada.get(id)
+    if (!c) return [null, null, null, null]
+    const saldo = c.importe == null ? null : redondear(c.importe - c.pagado, 2)
+    return [c.precio_kg, c.importe, c.pagado, saldo]
+  }
+
   // ── Hoja 1: Entradas ──────────────────────────────────────────────────────
   const hojaEntradas: CellValue[][] = [
     [
@@ -118,7 +148,7 @@ export async function buildAcopioExport(f: FiltrosAcopio): Promise<{
       'Pesadas', 'Sacos', 'Plástico', 'Yute', 'Henequén',
       'Kg brutos', 'Tara (kg)', 'Kg netos', 'Quintales',
       'Rendimiento %', 'Zaranda 16 %', 'Zaranda 15 %', 'Caracol %', 'Mancha %', 'Humedad %',
-      'Cosecha', 'Estado', 'Comentarios',
+      'Cosecha', 'Estado', 'Comentarios', ...costoCols,
     ],
     ...entradas.map((e) => [
       e.folio, e.fecha_acopio, e.proveedor_nombre, e.comunidad, e.municipio, e.especie, e.tipo,
@@ -126,7 +156,7 @@ export async function buildAcopioExport(f: FiltrosAcopio): Promise<{
       num(e.kg_brutos), num(e.tara_kg), num(e.kg_netos), e.quintales,
       pct(e.rendimiento), pct(e.zaranda_16), pct(e.zaranda_15), pct(e.caracol),
       pct(e.mancha), pct(e.humedad),
-      e.cosecha, ESTADO_ENTRADA_LABEL[e.estado] ?? e.estado, e.comentarios,
+      e.cosecha, ESTADO_ENTRADA_LABEL[e.estado] ?? e.estado, e.comentarios, ...costoDe(e.id),
     ]),
   ]
 

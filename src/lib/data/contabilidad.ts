@@ -1,7 +1,7 @@
 // Contabilidad — consultas server-side. El costo vive en entrada_costo, cuya
 // RLS sólo deja entrar a admin/contador: el operativo no ve estas filas.
 import { createClient } from '@/lib/supabase/server'
-import type { BoletaCosto } from '@/lib/contabilidad/tipos'
+import type { BoletaCosto, MaquilaCosto } from '@/lib/contabilidad/tipos'
 
 export * from '@/lib/contabilidad/tipos'
 
@@ -60,4 +60,69 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
       factura: c?.factura ?? null,
     }
   })
+}
+
+/**
+ * Costo por corte de maquila: suma el importe de las boletas que alimentaron
+ * cada corte (materia prima) y lo divide entre los kg de oro obtenidos. El
+ * importe sale de entrada_costo, así que sólo tiene números para contador/admin;
+ * para el resto, la RLS deja el importe en 0 (no ve costos).
+ */
+export async function getMaquilasCosto(): Promise<MaquilaCosto[]> {
+  const supabase = await createClient()
+
+  const [mq, mb, costos, res, prods] = await Promise.all([
+    supabase.from('maquilas').select('id, numero, especie, fecha_corte').limit(2000),
+    supabase.from('maquila_boleta').select('maquila_id, entrada_id').limit(20000),
+    supabase.from('entrada_costo').select('entrada_id, importe').limit(20000),
+    supabase.from('maquila_resultado').select('maquila_id, producto_id, total_kg').limit(20000),
+    supabase.from('maquila_producto').select('id, clave').limit(200),
+  ])
+  for (const r of [mq, mb, costos, res, prods]) if (r.error) throw new Error(r.error.message)
+
+  const importePorEntrada = new Map<string, number>()
+  for (const c of costos.data ?? []) {
+    if (c.importe != null) importePorEntrada.set(c.entrada_id as string, Number(c.importe))
+  }
+  const oroIds = new Set(
+    (prods.data ?? []).filter((p) => p.clave === 'ORO_EXPORTACION').map((p) => p.id as string),
+  )
+  const oroKgPorMaquila = new Map<string, number>()
+  for (const r of res.data ?? []) {
+    if (!oroIds.has(r.producto_id as string)) continue
+    const k = r.maquila_id as string
+    oroKgPorMaquila.set(k, (oroKgPorMaquila.get(k) ?? 0) + Number(r.total_kg ?? 0))
+  }
+
+  const agg = new Map<string, { boletas: number; conPrecio: number; importe: number }>()
+  for (const b of mb.data ?? []) {
+    const k = b.maquila_id as string
+    const a = agg.get(k) ?? { boletas: 0, conPrecio: 0, importe: 0 }
+    a.boletas++
+    const imp = importePorEntrada.get(b.entrada_id as string)
+    if (imp != null) {
+      a.conPrecio++
+      a.importe += imp
+    }
+    agg.set(k, a)
+  }
+
+  const red = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d
+  return ((mq.data ?? []) as unknown as { id: string; numero: number | null; especie: string | null; fecha_corte: string | null }[])
+    .map((m) => {
+      const a = agg.get(m.id) ?? { boletas: 0, conPrecio: 0, importe: 0 }
+      const oroKg = oroKgPorMaquila.get(m.id) ?? 0
+      return {
+        id: m.id,
+        numero: m.numero,
+        especie: m.especie,
+        fecha_corte: m.fecha_corte,
+        boletas: a.boletas,
+        boletas_con_precio: a.conPrecio,
+        importe_total: red(a.importe),
+        oro_kg: red(oroKg, 2),
+        costo_kg_oro: oroKg > 0 && a.importe > 0 ? red(a.importe / oroKg, 4) : null,
+      }
+    })
+    .sort((x, y) => (y.numero ?? 0) - (x.numero ?? 0))
 }
