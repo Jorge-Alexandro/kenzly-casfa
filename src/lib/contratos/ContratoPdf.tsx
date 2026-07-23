@@ -23,25 +23,25 @@ const ENCABEZADO = {
 }
 
 const s = StyleSheet.create({
-  page: { paddingTop: 36, paddingBottom: 54, paddingHorizontal: 44, fontSize: 10, color: '#1f2937', lineHeight: 1.5 },
+  page: { paddingTop: 30, paddingBottom: 40, paddingHorizontal: 44, fontSize: 10, color: '#1f2937', lineHeight: 1.4 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: 1, borderBottomColor: '#94a3b8', paddingBottom: 8 },
   logo: { width: 62, height: 56, objectFit: 'contain' },
   headerText: { flex: 1, textAlign: 'center', lineHeight: 1.35 },
   razon: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: '#1f2937' },
   domicilio: { fontSize: 8, color: '#4b5563', marginTop: 1 },
-  title: { marginTop: 16, textAlign: 'center', fontSize: 13, fontFamily: 'Helvetica-Bold' },
-  folio: { textAlign: 'center', fontSize: 10, color: '#6b7280', marginTop: 2, marginBottom: 12 },
-  intro: { textAlign: 'justify', marginBottom: 12 },
+  title: { marginTop: 14, textAlign: 'center', fontSize: 13, fontFamily: 'Helvetica-Bold' },
+  folio: { textAlign: 'center', fontSize: 10, color: '#6b7280', marginTop: 2, marginBottom: 10 },
+  intro: { textAlign: 'justify', marginBottom: 8 },
   bold: { fontFamily: 'Helvetica-Bold' },
-  clausula: { marginBottom: 9 },
+  clausula: { marginBottom: 6 },
   clTitulo: { fontFamily: 'Helvetica-Bold', marginBottom: 2 },
   clTexto: { textAlign: 'justify' },
-  tabla: { borderWidth: 1, borderColor: '#9ca3af', borderRadius: 2, marginBottom: 12 },
+  tabla: { borderWidth: 1, borderColor: '#9ca3af', borderRadius: 2, marginBottom: 10 },
   tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
   trLast: { flexDirection: 'row' },
-  k: { width: '38%', padding: 5, fontFamily: 'Helvetica-Bold', backgroundColor: '#f3f4f6' },
-  v: { width: '62%', padding: 5 },
-  firmas: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 40 },
+  k: { width: '38%', padding: 4, fontFamily: 'Helvetica-Bold', backgroundColor: '#f3f4f6' },
+  v: { width: '62%', padding: 4 },
+  firmas: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 28 },
   firmaBox: { width: '44%', alignItems: 'center' },
   firmaImg: { height: 46, objectFit: 'contain', marginBottom: 2 },
   selloImg: { position: 'absolute', width: 96, height: 96, objectFit: 'contain', opacity: 0.6, top: -40, right: -10 },
@@ -177,8 +177,11 @@ export function ContratoPdf({
           <Clausula key={cl.titulo} n={i + 1} titulo={cl.titulo} texto={cl.texto} />
         ))}
 
-        {/* Firmas */}
-        <View style={s.firmas}>
+        {/* Firmas: las dos juntas. `wrap={false}` evita que se partan entre
+            páginas (antes el vendedor quedaba en una y CASFA en la otra).
+            `minPresenceAhead` reserva espacio para que salten completas si no
+            caben abajo de las cláusulas. */}
+        <View style={s.firmas} wrap={false}>
           <View style={s.firmaBox}>
             {img.firmaVendedor ? <Image style={s.firmaImg} src={img.firmaVendedor} /> : <View style={{ height: 46 }} />}
             <View style={s.firmaLinea}>

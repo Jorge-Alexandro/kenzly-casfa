@@ -52,6 +52,9 @@ export default async function ContratoPage({ params }: { params: { id: string } 
             <div className="flex items-center gap-3">
               <a
                 href={`/api/contratos/${c.id}/pdf`}
+                download={`CASFA_CF_${c.folio}.pdf`}
+                target="_blank"
+                rel="noopener"
                 className="rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900"
               >
                 ↓ Descargar contrato (PDF)
