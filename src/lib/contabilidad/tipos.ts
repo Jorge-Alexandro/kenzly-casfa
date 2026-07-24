@@ -41,6 +41,32 @@ export interface BoletaCosto {
   factura: string | null
   pagos: Pago[]
   facturas: Factura[]
+  // Almacén (cooperativa FLO / CASFASA). Sólo relevante si es_cooperativa.
+  /** La boleta es de la cooperativa FLO (comunidad Chula Vista). */
+  es_cooperativa: boolean
+  /** Estimación de cosecha del productor (LPA), suma del ciclo. */
+  estimacion_kg: number | null
+  /** Kg que el productor lleva entregados en la cooperativa (todo el ciclo). */
+  entregado_total: number | null
+  /** Kg de la cooperativa por el reparto automático (no se pagan). */
+  kg_coop: number
+  /** Kg de CASFASA por el reparto automático (excedente; pagable por defecto). */
+  kg_casfasa: number
+  /** Ajuste manual de kg a pagar; null = usar el reparto automático (kg_casfasa). */
+  kg_pagable: number | null
+  /** Kilos sobre los que se calcula el importe (base efectiva). */
+  base_kg: number
+}
+
+/** Kilos sobre los que se paga una boleta: kg_netos, o sólo el excedente si es cooperativa. */
+export function baseKg(b: {
+  es_cooperativa: boolean
+  kg_netos: number
+  kg_casfasa: number
+  kg_pagable: number | null
+}): number {
+  if (!b.es_cooperativa) return b.kg_netos
+  return b.kg_pagable ?? b.kg_casfasa
 }
 
 export const fmtMXN = (n: number | null | undefined) =>

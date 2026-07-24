@@ -1,7 +1,9 @@
 // Contabilidad — consultas server-side. El costo vive en entrada_costo, cuya
 // RLS sólo deja entrar a admin/contador: el operativo no ve estas filas.
 import { createClient } from '@/lib/supabase/server'
-import type { BoletaCosto, MaquilaCosto, Pago, Factura } from '@/lib/contabilidad/tipos'
+import { baseKg, type BoletaCosto, type MaquilaCosto, type Pago, type Factura } from '@/lib/contabilidad/tipos'
+import { esCooperativa } from '@/lib/contabilidad/almacenes'
+import { getAsignacionCoop } from '@/lib/data/almacenes'
 
 export * from '@/lib/contabilidad/tipos'
 
@@ -10,6 +12,7 @@ interface CostoEmbed {
   importe: number | null
   importe_pagado: number | null
   factura: string | null
+  kg_pagable: number | null
 }
 interface EntradaRow {
   id: string
@@ -31,17 +34,20 @@ interface EntradaRow {
 /** Boletas con su costo (embebido). Sólo tiene sentido para admin/contador. */
 export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('entradas')
-    .select(
-      'id, folio, fecha_acopio, proveedor_nombre, comunidad, municipio, especie, tipo,' +
-        ' total_sacos, kg_netos, quintales,' +
-        ' entrada_costo ( precio_kg, importe, importe_pagado, factura ),' +
-        ' entrada_pago ( id, fecha, monto, metodo, referencia, observaciones ),' +
-        ' entrada_factura ( id, folio, fecha, monto, uuid_fiscal )',
-    )
-    .order('folio', { ascending: false })
-    .limit(2000)
+  const [{ data, error }, asignacion] = await Promise.all([
+    supabase
+      .from('entradas')
+      .select(
+        'id, folio, fecha_acopio, proveedor_nombre, comunidad, municipio, especie, tipo,' +
+          ' total_sacos, kg_netos, quintales,' +
+          ' entrada_costo ( precio_kg, importe, importe_pagado, factura, kg_pagable ),' +
+          ' entrada_pago ( id, fecha, monto, metodo, referencia, observaciones ),' +
+          ' entrada_factura ( id, folio, fecha, monto, uuid_fiscal )',
+      )
+      .order('folio', { ascending: false })
+      .limit(2000),
+    getAsignacionCoop(supabase),
+  ])
   if (error) throw new Error(error.message)
 
   return ((data ?? []) as unknown as EntradaRow[]).map((e) => {
@@ -53,6 +59,12 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
       ...f,
       monto: f.monto == null ? null : Number(f.monto),
     }))
+    const kgNetos = Number(e.kg_netos)
+    const es_cooperativa = esCooperativa(e.comunidad)
+    const asg = asignacion.get(e.id)
+    const kg_coop = asg?.kg_coop ?? 0
+    const kg_casfasa = asg?.kg_casfasa ?? kgNetos
+    const kg_pagable = c?.kg_pagable == null ? null : Number(c.kg_pagable)
     return {
       pagos,
       facturas,
@@ -65,12 +77,19 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
       especie: e.especie,
       tipo: e.tipo,
       total_sacos: e.total_sacos,
-      kg_netos: Number(e.kg_netos),
+      kg_netos: kgNetos,
       quintales: e.quintales == null ? null : Number(e.quintales),
       precio_kg: c?.precio_kg == null ? null : Number(c.precio_kg),
       importe: c?.importe == null ? null : Number(c.importe),
       importe_pagado: c?.importe_pagado == null ? 0 : Number(c.importe_pagado),
       factura: c?.factura ?? null,
+      es_cooperativa,
+      estimacion_kg: asg?.estimacion_kg ?? null,
+      entregado_total: asg?.entregado_total ?? null,
+      kg_coop,
+      kg_casfasa,
+      kg_pagable,
+      base_kg: baseKg({ es_cooperativa, kg_netos: kgNetos, kg_casfasa, kg_pagable }),
     }
   })
 }

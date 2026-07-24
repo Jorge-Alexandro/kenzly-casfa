@@ -6,6 +6,7 @@ import { getBoletasConCosto, getMaquilasCosto, fmtMXN, fmtNum } from '@/lib/data
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import TablaCostos from '@/components/contabilidad/TablaCostos'
+import ResumenAlmacenes from '@/components/contabilidad/ResumenAlmacenes'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,6 +101,9 @@ export default async function ContabilidadPage() {
               </p>
             </section>
           )}
+
+          {/* Reparto cooperativa FLO / CASFASA de las boletas de Chula Vista */}
+          <ResumenAlmacenes boletas={boletas} />
 
           <TablaCostos boletas={boletas} />
         </div>

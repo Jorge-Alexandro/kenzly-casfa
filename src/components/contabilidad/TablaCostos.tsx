@@ -5,10 +5,14 @@
 // de los abonos, que se capturan uno por uno en el detalle — así queda la
 // evidencia de cómo se fue pagando. Igual las facturas.
 import { Fragment, useMemo, useState } from 'react'
-import { fmtMXN, fmtNum, METODOS_PAGO, type BoletaCosto, type Pago, type Factura } from '@/lib/contabilidad/tipos'
+import { baseKg, fmtMXN, fmtNum, METODOS_PAGO, type BoletaCosto, type Pago, type Factura } from '@/lib/contabilidad/tipos'
 
 const norm = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+/** Kilos sobre los que se paga la boleta (todo el neto, o sólo el excedente FLO). */
+const baseDe = (b: BoletaCosto) =>
+  baseKg({ es_cooperativa: b.es_cooperativa, kg_netos: b.kg_netos, kg_casfasa: b.kg_casfasa, kg_pagable: b.kg_pagable })
 
 export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
   const [rows, setRows] = useState(boletas)
@@ -46,7 +50,7 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
       rs.map((b) => {
         if (b.id !== id) return b
         const n = valor === '' ? null : Number(valor)
-        return { ...b, precio_kg: n, importe: n == null ? null : Math.round(n * b.kg_netos * 100) / 100 }
+        return { ...b, precio_kg: n, importe: n == null ? null : Math.round(n * baseDe(b) * 100) / 100 }
       }),
     )
   }
@@ -125,13 +129,27 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
                   <tr className={abiertaEsta ? 'bg-orange-50/40' : undefined}>
                     <td className="px-3 py-2 font-semibold text-slate-700">{b.folio}</td>
                     <td className="px-3 py-2">
-                      <div className="max-w-[14rem] truncate text-slate-800">{b.proveedor_nombre}</div>
+                      <div className="flex max-w-[15rem] items-center gap-1.5">
+                        <span className="truncate text-slate-800">{b.proveedor_nombre}</span>
+                        {b.es_cooperativa && (
+                          <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700" title="Cooperativa FLO (Finca Chula Vista)">
+                            FLO
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-400">{b.fecha_acopio}</div>
                     </td>
                     <td className="px-3 py-2 text-slate-600">
                       {b.especie} <span className="text-slate-400">{b.tipo}</span>
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-slate-700">{fmtNum(b.kg_netos, 1)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+                      {fmtNum(b.kg_netos, 1)}
+                      {b.es_cooperativa && (
+                        <div className="text-xs text-sky-600" title="Kg que paga CASFASA (excedente sobre la estimación)">
+                          paga {fmtNum(baseDe(b), 1)}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right">
                       <input
                         type="number" min="0" step="0.01" inputMode="decimal"
@@ -193,8 +211,35 @@ function Detalle({
   const [pago, setPago] = useState({ fecha: hoy(), monto: '', metodo: 'Transferencia', referencia: '' })
   const [fact, setFact] = useState({ folio: '', fecha: hoy(), monto: '', uuid_fiscal: '' })
   const [ocupado, setOcupado] = useState(false)
+  const [pagable, setPagable] = useState(boleta.kg_pagable == null ? '' : String(boleta.kg_pagable))
 
   const restante = Math.round(((boleta.importe ?? 0) - boleta.importe_pagado) * 100) / 100
+
+  /** Fija (o libera, con null) los kg que paga CASFASA en esta boleta. */
+  async function guardarPagable(valor: string | null) {
+    onError(null)
+    setOcupado(true)
+    try {
+      const res = await fetch('/api/contabilidad/costo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entrada_id: boleta.id,
+          precio_kg: boleta.precio_kg,
+          kg_pagable: valor === '' || valor == null ? null : Number(valor),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudieron guardar los kilos a pagar')
+      const kg = data.kg_pagable == null ? null : Number(data.kg_pagable)
+      setPagable(kg == null ? '' : String(kg))
+      onCambio({ kg_pagable: kg, importe: data.importe == null ? null : Number(data.importe) })
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'Error al guardar los kilos a pagar')
+    } finally {
+      setOcupado(false)
+    }
+  }
 
   async function agregarPago() {
     onError(null)
@@ -264,7 +309,63 @@ function Detalle({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="space-y-4">
+      {/* Almacén: qué parte es de la cooperativa FLO y qué parte compra CASFASA */}
+      {boleta.es_cooperativa && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-3">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-sky-800">
+              Almacén — Cooperativa FLO (Chula Vista)
+            </h4>
+            <span className="text-xs text-sky-700">
+              Sólo se paga lo que rebasa la estimación de cosecha del productor.
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Mini label="Estimación (LPA)" value={`${fmtNum(boleta.estimacion_kg, 1)} kg`} />
+            <Mini label="Entregado del ciclo" value={`${fmtNum(boleta.entregado_total, 1)} kg`} />
+            <Mini label="Esta boleta → FLO" value={`${fmtNum(boleta.kg_netos - baseDe(boleta), 1)} kg`} nota="no se paga" />
+            <Mini label="Esta boleta → CASFASA" value={`${fmtNum(baseDe(boleta), 1)} kg`} nota="se paga" destacado />
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <label className="text-xs text-slate-600">
+              <span className="mb-0.5 block">Ajustar kg a pagar</span>
+              <input
+                type="number" min="0" max={boleta.kg_netos} step="0.1" inputMode="decimal"
+                value={pagable}
+                placeholder={`auto: ${fmtNum(boleta.kg_casfasa, 1)}`}
+                onChange={(e) => setPagable(e.target.value)}
+                className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right text-sm"
+              />
+            </label>
+            <button
+              onClick={() => guardarPagable(pagable)}
+              disabled={ocupado}
+              className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-800 disabled:opacity-60"
+            >
+              Guardar
+            </button>
+            {boleta.kg_pagable != null && (
+              <button
+                onClick={() => guardarPagable(null)}
+                disabled={ocupado}
+                className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-white disabled:opacity-60"
+              >
+                Volver a automático
+              </button>
+            )}
+            <span className="text-xs text-slate-500">
+              {boleta.kg_pagable == null
+                ? 'Calculado por la estimación del LPA.'
+                : 'Ajustado a mano (ignora la estimación en esta boleta).'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
       {/* Pagos */}
       <div className="rounded-lg border border-slate-200 bg-white p-3">
         <div className="mb-2 flex items-baseline justify-between">
@@ -357,6 +458,7 @@ function Detalle({
           </button>
         </div>
       </div>
+      </div>
     </div>
   )
 }
@@ -364,6 +466,17 @@ function Detalle({
 const MINI = 'w-full rounded-md border border-slate-300 px-2 py-1 text-sm'
 const hoy = () => new Date().toISOString().slice(0, 10)
 const saldo = (b: BoletaCosto) => (b.importe ?? 0) - b.importe_pagado
+
+/** Dato chico del desglose de almacén. */
+function Mini({ label, value, nota, destacado }: { label: string; value: string; nota?: string; destacado?: boolean }) {
+  return (
+    <div className={`rounded-md border bg-white px-2.5 py-1.5 ${destacado ? 'border-sky-300' : 'border-slate-200'}`}>
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className={`text-sm font-semibold tabular-nums ${destacado ? 'text-sky-800' : 'text-slate-800'}`}>{value}</div>
+      {nota && <div className="text-[10px] text-slate-400">{nota}</div>}
+    </div>
+  )
+}
 
 function Tot({ label, value, destacado }: { label: string; value: string; destacado?: boolean }) {
   return (
