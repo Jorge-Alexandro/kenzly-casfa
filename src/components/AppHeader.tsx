@@ -25,6 +25,7 @@ const TABS: { href: string; label: string; soloAdmin?: boolean; contador?: boole
   { href: '/salidas', label: 'Salidas', soloAdmin: true, contador: true },
   { href: '/contabilidad', label: 'Contabilidad', soloAdmin: true, contador: true },
   { href: '/gastos', label: 'Gastos', soloAdmin: true, contador: true },
+  { href: '/concentrado', label: 'Concentrado', soloAdmin: true, contador: true },
   { href: '/ventas', label: 'Ventas', soloAdmin: true, contador: true },
   { href: '/contratos', label: 'Contratos', soloAdmin: true },
   { href: '/crm', label: 'CRM', soloAdmin: true, contador: true },
