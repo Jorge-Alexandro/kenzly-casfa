@@ -40,13 +40,14 @@ export async function POST(request: Request) {
   const kgNetos = Number(entrada.kg_netos) || 0
   const importe = precio_kg == null ? null : Math.round(precio_kg * kgNetos * 100) / 100
 
+  // OJO: aquí NO se tocan `importe_pagado` ni `factura`. El total pagado lo
+  // mantiene el trigger sumando los abonos (entrada_pago) y las facturas viven
+  // en entrada_factura; escribirlos aquí borraría el detalle de Vicky.
   const fila = {
     entrada_id,
     org_id: r.session.orgId,
     precio_kg,
     importe,
-    importe_pagado: num(b?.importe_pagado) ?? 0,
-    factura: txt(b?.factura),
     observaciones: txt(b?.observaciones),
     actualizado_por: r.session.userId,
     updated_at: new Date().toISOString(),

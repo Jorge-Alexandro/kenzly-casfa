@@ -1,5 +1,26 @@
 // Contabilidad — tipos puros (client-safe).
 
+/** Un abono de la boleta (se puede pagar en varias exhibiciones). */
+export interface Pago {
+  id: string
+  fecha: string
+  monto: number
+  metodo: string | null
+  referencia: string | null
+  observaciones: string | null
+}
+
+/** Una factura de la boleta (puede facturarse en partes). */
+export interface Factura {
+  id: string
+  folio: string
+  fecha: string | null
+  monto: number | null
+  uuid_fiscal: string | null
+}
+
+export const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Cheque', 'Depósito'] as const
+
 export interface BoletaCosto {
   id: string
   folio: number
@@ -15,8 +36,11 @@ export interface BoletaCosto {
   // Costo (tabla entrada_costo; sólo Contabilidad).
   precio_kg: number | null
   importe: number | null
+  /** Total abonado = suma de `pagos` (lo mantiene un trigger). */
   importe_pagado: number
   factura: string | null
+  pagos: Pago[]
+  facturas: Factura[]
 }
 
 export const fmtMXN = (n: number | null | undefined) =>

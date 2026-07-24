@@ -1,7 +1,7 @@
 // Contabilidad — consultas server-side. El costo vive en entrada_costo, cuya
 // RLS sólo deja entrar a admin/contador: el operativo no ve estas filas.
 import { createClient } from '@/lib/supabase/server'
-import type { BoletaCosto, MaquilaCosto } from '@/lib/contabilidad/tipos'
+import type { BoletaCosto, MaquilaCosto, Pago, Factura } from '@/lib/contabilidad/tipos'
 
 export * from '@/lib/contabilidad/tipos'
 
@@ -24,6 +24,8 @@ interface EntradaRow {
   kg_netos: number
   quintales: number | null
   entrada_costo: CostoEmbed | CostoEmbed[] | null
+  entrada_pago: Pago[] | null
+  entrada_factura: Factura[] | null
 }
 
 /** Boletas con su costo (embebido). Sólo tiene sentido para admin/contador. */
@@ -34,7 +36,9 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
     .select(
       'id, folio, fecha_acopio, proveedor_nombre, comunidad, municipio, especie, tipo,' +
         ' total_sacos, kg_netos, quintales,' +
-        ' entrada_costo ( precio_kg, importe, importe_pagado, factura )',
+        ' entrada_costo ( precio_kg, importe, importe_pagado, factura ),' +
+        ' entrada_pago ( id, fecha, monto, metodo, referencia, observaciones ),' +
+        ' entrada_factura ( id, folio, fecha, monto, uuid_fiscal )',
     )
     .order('folio', { ascending: false })
     .limit(2000)
@@ -42,7 +46,16 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
 
   return ((data ?? []) as unknown as EntradaRow[]).map((e) => {
     const c = Array.isArray(e.entrada_costo) ? e.entrada_costo[0] : e.entrada_costo
+    const pagos = (e.entrada_pago ?? [])
+      .map((p) => ({ ...p, monto: Number(p.monto) }))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    const facturas = (e.entrada_factura ?? []).map((f) => ({
+      ...f,
+      monto: f.monto == null ? null : Number(f.monto),
+    }))
     return {
+      pagos,
+      facturas,
       id: e.id,
       folio: e.folio,
       fecha_acopio: e.fecha_acopio,
