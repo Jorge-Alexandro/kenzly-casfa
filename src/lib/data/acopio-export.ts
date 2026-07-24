@@ -132,13 +132,45 @@ export async function buildAcopioExport(
       }
     }
   }
-  const costoCols = incluirCosto ? ['Precio/kg', 'Importe', 'Importe pagado', 'Saldo'] : []
+  // A qué corte de maquila se fue la boleta ("M1", "M2"…). En el reporte que
+  // Contabilidad llevaba a mano esta columna iba junto al precio y el total, y
+  // es la que amarra el costo de la materia prima con el corte.
+  const maquilaPorEntrada = new Map<string, string[]>()
+  if (incluirCosto) {
+    const [{ data: mqs }, ...lotes] = await Promise.all([
+      supabase.from('maquilas').select('id, numero').limit(2000),
+      ...Array.from({ length: Math.ceil(ids.length / 100) }, (_, k) =>
+        supabase
+          .from('maquila_boleta')
+          .select('maquila_id, entrada_id')
+          .in('entrada_id', ids.slice(k * 100, k * 100 + 100)),
+      ),
+    ])
+    const numeroDe = new Map(
+      (mqs ?? []).map((m) => [m.id as string, m.numero == null ? null : Number(m.numero)]),
+    )
+    for (const l of lotes) {
+      for (const r of l.data ?? []) {
+        const n = numeroDe.get(r.maquila_id as string)
+        const etiqueta = n == null ? 'M?' : `M${n}`
+        const k = r.entrada_id as string
+        const arr = maquilaPorEntrada.get(k) ?? []
+        if (!arr.includes(etiqueta)) arr.push(etiqueta)
+        maquilaPorEntrada.set(k, arr)
+      }
+    }
+  }
+
+  const costoCols = incluirCosto
+    ? ['Precio/kg', 'Importe', 'Importe pagado', 'Saldo', 'Maquila']
+    : []
   const costoDe = (id: string): CellValue[] => {
     if (!incluirCosto) return []
+    const maquila = (maquilaPorEntrada.get(id) ?? []).sort().join(' · ') || null
     const c = costoPorEntrada.get(id)
-    if (!c) return [null, null, null, null]
+    if (!c) return [null, null, null, null, maquila]
     const saldo = c.importe == null ? null : redondear(c.importe - c.pagado, 2)
-    return [c.precio_kg, c.importe, c.pagado, saldo]
+    return [c.precio_kg, c.importe, c.pagado, saldo, maquila]
   }
 
   // ── Hoja 1: Entradas ──────────────────────────────────────────────────────
