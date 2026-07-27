@@ -5,14 +5,37 @@
 // de los abonos, que se capturan uno por uno en el detalle — así queda la
 // evidencia de cómo se fue pagando. Igual las facturas.
 import { Fragment, useMemo, useState } from 'react'
-import { baseKg, fmtMXN, fmtNum, METODOS_PAGO, type BoletaCosto, type Pago, type Factura } from '@/lib/contabilidad/tipos'
+import {
+  baseKg, coopKg, calcularImporte, fmtMXN, fmtNum,
+  METODOS_PAGO, type BoletaCosto, type Pago, type Factura,
+} from '@/lib/contabilidad/tipos'
 
 const norm = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
-/** Kilos sobre los que se paga la boleta (todo el neto, o sólo el excedente FLO). */
+/** Kilos de CASFASA (excedente) sobre los que se paga a precio_kg. */
 const baseDe = (b: BoletaCosto) =>
   baseKg({ es_cooperativa: b.es_cooperativa, kg_netos: b.kg_netos, kg_casfasa: b.kg_casfasa, kg_pagable: b.kg_pagable })
+
+/** Kilos de la cooperativa (FLO) que se pagan a precio_kg_coop. */
+const coopDe = (b: BoletaCosto) =>
+  coopKg({ es_cooperativa: b.es_cooperativa, kg_netos: b.kg_netos, kg_casfasa: b.kg_casfasa, kg_pagable: b.kg_pagable })
+
+/** Recalcula el importe de la boleta con los dos precios (CASFASA + FLO). */
+const importeDe = (b: BoletaCosto) =>
+  calcularImporte({
+    es_cooperativa: b.es_cooperativa, kg_netos: b.kg_netos, kg_casfasa: b.kg_casfasa,
+    kg_pagable: b.kg_pagable, precio_kg: b.precio_kg, precio_kg_coop: b.precio_kg_coop,
+  })
+
+/** Grupo de producto para los KPIs: ARABE, ROBUSTA o CACAO. */
+const grupoProducto = (especie: string) => {
+  const e = norm(especie)
+  if (e.includes('cacao')) return 'CACAO'
+  if (e.includes('robusta')) return 'ROBUSTA'
+  if (e.includes('arabe')) return 'ARABE'
+  return especie.toUpperCase()
+}
 
 export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
   const [rows, setRows] = useState(boletas)
@@ -34,13 +57,15 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
   const tot = useMemo(
     () =>
       visibles.reduce(
-        (a, b) => ({
-          kg: a.kg + b.kg_netos,
-          qq: a.qq + (b.quintales ?? 0),
-          importe: a.importe + (b.importe ?? 0),
-          pagado: a.pagado + b.importe_pagado,
-        }),
-        { kg: 0, qq: 0, importe: 0, pagado: 0 },
+        (a, b) => {
+          const g = grupoProducto(b.especie)
+          a.kg += b.kg_netos
+          a.porProducto[g] = (a.porProducto[g] ?? 0) + b.kg_netos
+          a.importe += b.importe ?? 0
+          a.pagado += b.importe_pagado
+          return a
+        },
+        { kg: 0, importe: 0, pagado: 0, porProducto: {} as Record<string, number> },
       ),
     [visibles],
   )
@@ -49,8 +74,9 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
     setRows((rs) =>
       rs.map((b) => {
         if (b.id !== id) return b
-        const n = valor === '' ? null : Number(valor)
-        return { ...b, precio_kg: n, importe: n == null ? null : Math.round(n * baseDe(b) * 100) / 100 }
+        const precio_kg = valor === '' ? null : Number(valor)
+        const n = { ...b, precio_kg }
+        return { ...n, importe: importeDe(n) }
       }),
     )
   }
@@ -80,7 +106,7 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
         <input
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar folio, proveedor, café…"
+          placeholder="Buscar folio, proveedor, producto…"
           className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         {(['todas', 'sin_precio', 'con_saldo'] as const).map((f) => (
@@ -98,9 +124,12 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
 
       {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tot label="Boletas" value={String(visibles.length)} />
-        <Tot label="Kg netos" value={fmtNum(tot.kg, 1)} />
+        <Tot label="Kg ARABE" value={fmtNum(tot.porProducto['ARABE'] ?? 0, 1)} />
+        <Tot label="Kg ROBUSTA" value={fmtNum(tot.porProducto['ROBUSTA'] ?? 0, 1)} />
+        <Tot label="Kg CACAO" value={fmtNum(tot.porProducto['CACAO'] ?? 0, 1)} />
+        <Tot label="Kg netos (total)" value={fmtNum(tot.kg, 1)} />
         <Tot label="Importe" value={fmtMXN(tot.importe)} destacado />
         <Tot label="Pagado" value={fmtMXN(tot.pagado)} />
         <Tot label="Saldo" value={fmtMXN(tot.importe - tot.pagado)} />
@@ -112,7 +141,7 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
             <tr>
               <th className="px-3 py-2.5">Folio</th>
               <th className="px-3 py-2.5">Proveedor</th>
-              <th className="px-3 py-2.5">Café</th>
+              <th className="px-3 py-2.5">Producto</th>
               <th className="px-3 py-2.5 text-right">Kg netos</th>
               <th className="px-3 py-2.5 text-right">Precio/kg</th>
               <th className="px-3 py-2.5 text-right">Importe</th>
@@ -145,8 +174,9 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
                     <td className="px-3 py-2 text-right tabular-nums text-slate-700">
                       {fmtNum(b.kg_netos, 1)}
                       {b.es_cooperativa && (
-                        <div className="text-xs text-sky-600" title="Kg que paga CASFASA (excedente sobre la estimación)">
-                          paga {fmtNum(baseDe(b), 1)}
+                        <div className="text-xs text-sky-600" title="Reparto entre CASFASA (excedente) y la cooperativa FLO">
+                          CASFASA {fmtNum(baseDe(b), 1)}
+                          {coopDe(b) > 0.05 && <> · FLO {fmtNum(coopDe(b), 1)}</>}
                         </div>
                       )}
                     </td>
@@ -157,7 +187,13 @@ export default function TablaCostos({ boletas }: { boletas: BoletaCosto[] }) {
                         onChange={(e) => editarPrecio(b.id, e.target.value)}
                         onBlur={() => guardarPrecio(b)}
                         className="w-20 rounded-md border border-slate-300 px-2 py-1 text-right text-sm"
+                        title={b.es_cooperativa ? 'Precio del excedente (CASFASA)' : 'Precio por kilo'}
                       />
+                      {b.es_cooperativa && b.precio_kg_coop != null && (
+                        <div className="text-xs text-sky-600" title="Precio de la parte de la cooperativa (FLO)">
+                          FLO {fmtMXN(b.precio_kg_coop)}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium text-slate-800">{fmtMXN(b.importe)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-slate-700">
@@ -212,8 +248,11 @@ function Detalle({
   const [fact, setFact] = useState({ folio: '', fecha: hoy(), monto: '', uuid_fiscal: '' })
   const [ocupado, setOcupado] = useState(false)
   const [pagable, setPagable] = useState(boleta.kg_pagable == null ? '' : String(boleta.kg_pagable))
+  const [precioCoop, setPrecioCoop] = useState(boleta.precio_kg_coop == null ? '' : String(boleta.precio_kg_coop))
 
   const restante = Math.round(((boleta.importe ?? 0) - boleta.importe_pagado) * 100) / 100
+  const kgCasfasa = baseDe(boleta)
+  const kgCoop = coopDe(boleta)
 
   /** Fija (o libera, con null) los kg que paga CASFASA en esta boleta. */
   async function guardarPagable(valor: string | null) {
@@ -236,6 +275,32 @@ function Detalle({
       onCambio({ kg_pagable: kg, importe: data.importe == null ? null : Number(data.importe) })
     } catch (e) {
       onError(e instanceof Error ? e.message : 'Error al guardar los kilos a pagar')
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** Fija (o libera, con null) el precio de la parte de la cooperativa (FLO). */
+  async function guardarPrecioCoop(valor: string) {
+    onError(null)
+    setOcupado(true)
+    try {
+      const res = await fetch('/api/contabilidad/costo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entrada_id: boleta.id,
+          precio_kg: boleta.precio_kg,
+          precio_kg_coop: valor === '' ? null : Number(valor),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo guardar el precio de la cooperativa')
+      const p = data.precio_kg_coop == null ? null : Number(data.precio_kg_coop)
+      setPrecioCoop(p == null ? '' : String(p))
+      onCambio({ precio_kg_coop: p, importe: data.importe == null ? null : Number(data.importe) })
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'Error al guardar el precio de la cooperativa')
     } finally {
       setOcupado(false)
     }
@@ -310,7 +375,8 @@ function Detalle({
 
   return (
     <div className="space-y-4">
-      {/* Almacén: qué parte es de la cooperativa FLO y qué parte compra CASFASA */}
+      {/* Almacén: qué parte es de la cooperativa FLO y qué parte compra CASFASA,
+          cada una con su propio precio. */}
       {boleta.es_cooperativa && (
         <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-3">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
@@ -318,26 +384,61 @@ function Detalle({
               Almacén — Cooperativa FLO (Chula Vista)
             </h4>
             <span className="text-xs text-sky-700">
-              Sólo se paga lo que rebasa la estimación de cosecha del productor.
+              El excedente sobre la estimación lo compra CASFASA; la parte de la cooperativa puede
+              pagarse a otro precio.
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Mini label="Estimación (LPA)" value={`${fmtNum(boleta.estimacion_kg, 1)} kg`} />
             <Mini label="Entregado del ciclo" value={`${fmtNum(boleta.entregado_total, 1)} kg`} />
-            <Mini label="Esta boleta → FLO" value={`${fmtNum(boleta.kg_netos - baseDe(boleta), 1)} kg`} nota="no se paga" />
-            <Mini label="Esta boleta → CASFASA" value={`${fmtNum(baseDe(boleta), 1)} kg`} nota="se paga" destacado />
+            <Mini
+              label="Esta boleta → FLO"
+              value={`${fmtNum(kgCoop, 1)} kg`}
+              nota={boleta.precio_kg_coop != null ? `× ${fmtMXN(boleta.precio_kg_coop)}` : 'no se paga'}
+            />
+            <Mini
+              label="Esta boleta → CASFASA"
+              value={`${fmtNum(kgCasfasa, 1)} kg`}
+              nota={boleta.precio_kg != null ? `× ${fmtMXN(boleta.precio_kg)}` : 'sin precio'}
+              destacado
+            />
+          </div>
+
+          {/* Importe = parte CASFASA + parte FLO */}
+          <div className="mt-2 rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs text-slate-600">
+            Importe ={' '}
+            <span className="tabular-nums">
+              {fmtMXN(boleta.precio_kg == null ? 0 : boleta.precio_kg * kgCasfasa)}
+            </span>{' '}
+            (CASFASA) +{' '}
+            <span className="tabular-nums">
+              {fmtMXN(boleta.precio_kg_coop == null ? 0 : boleta.precio_kg_coop * kgCoop)}
+            </span>{' '}
+            (FLO) ={' '}
+            <span className="font-semibold text-slate-800 tabular-nums">{fmtMXN(boleta.importe)}</span>
           </div>
 
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <label className="text-xs text-slate-600">
-              <span className="mb-0.5 block">Ajustar kg a pagar</span>
+              <span className="mb-0.5 block">Precio FLO /kg</span>
+              <input
+                type="number" min="0" step="0.01" inputMode="decimal"
+                value={precioCoop}
+                placeholder="no se paga"
+                onChange={(e) => setPrecioCoop(e.target.value)}
+                onBlur={() => guardarPrecioCoop(precioCoop)}
+                className="w-28 rounded-md border border-slate-300 px-2 py-1 text-right text-sm"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              <span className="mb-0.5 block">Ajustar kg a pagar (CASFASA)</span>
               <input
                 type="number" min="0" max={boleta.kg_netos} step="0.1" inputMode="decimal"
                 value={pagable}
                 placeholder={`auto: ${fmtNum(boleta.kg_casfasa, 1)}`}
                 onChange={(e) => setPagable(e.target.value)}
-                className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right text-sm"
+                className="w-36 rounded-md border border-slate-300 px-2 py-1 text-right text-sm"
               />
             </label>
             <button
@@ -345,7 +446,7 @@ function Detalle({
               disabled={ocupado}
               className="rounded-md bg-sky-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-800 disabled:opacity-60"
             >
-              Guardar
+              Guardar kg
             </button>
             {boleta.kg_pagable != null && (
               <button
@@ -358,8 +459,8 @@ function Detalle({
             )}
             <span className="text-xs text-slate-500">
               {boleta.kg_pagable == null
-                ? 'Calculado por la estimación del LPA.'
-                : 'Ajustado a mano (ignora la estimación en esta boleta).'}
+                ? 'Kg calculados por la estimación del LPA.'
+                : 'Kg ajustados a mano (ignora la estimación en esta boleta).'}
             </span>
           </div>
         </div>

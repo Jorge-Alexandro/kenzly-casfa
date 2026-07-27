@@ -34,7 +34,10 @@ export interface BoletaCosto {
   kg_netos: number
   quintales: number | null
   // Costo (tabla entrada_costo; sólo Contabilidad).
+  /** Precio del excedente (CASFASA) en boletas FLO; el precio único en las demás. */
   precio_kg: number | null
+  /** Precio de la parte de la cooperativa (FLO); null = esa parte no se paga. */
+  precio_kg_coop: number | null
   importe: number | null
   /** Total abonado = suma de `pagos` (lo mantiene un trigger). */
   importe_pagado: number
@@ -54,11 +57,11 @@ export interface BoletaCosto {
   kg_casfasa: number
   /** Ajuste manual de kg a pagar; null = usar el reparto automático (kg_casfasa). */
   kg_pagable: number | null
-  /** Kilos sobre los que se calcula el importe (base efectiva). */
+  /** Kilos de CASFASA (excedente) efectivos = kg_pagable ?? kg_casfasa. */
   base_kg: number
 }
 
-/** Kilos sobre los que se paga una boleta: kg_netos, o sólo el excedente si es cooperativa. */
+/** Kilos de CASFASA (excedente) sobre los que se paga: kg_netos, o el excedente si es cooperativa. */
 export function baseKg(b: {
   es_cooperativa: boolean
   kg_netos: number
@@ -68,6 +71,41 @@ export function baseKg(b: {
   if (!b.es_cooperativa) return b.kg_netos
   return b.kg_pagable ?? b.kg_casfasa
 }
+
+/** Kilos de la cooperativa (FLO) = kg_netos − kg de CASFASA. 0 si no es cooperativa. */
+export function coopKg(b: {
+  es_cooperativa: boolean
+  kg_netos: number
+  kg_casfasa: number
+  kg_pagable: number | null
+}): number {
+  if (!b.es_cooperativa) return 0
+  return Math.round((b.kg_netos - baseKg(b)) * 1000) / 1000
+}
+
+/**
+ * Importe de una boleta con dos precios: el excedente (CASFASA) al precio_kg y
+ * la parte de la cooperativa (FLO) al precio_kg_coop. En boletas normales sólo
+ * cuenta precio_kg × kg_netos.
+ */
+export function calcularImporte(b: {
+  es_cooperativa: boolean
+  kg_netos: number
+  kg_casfasa: number
+  kg_pagable: number | null
+  precio_kg: number | null
+  precio_kg_coop: number | null
+}): number | null {
+  const casfasaKg = baseKg(b)
+  const parteCasfasa = b.precio_kg == null ? null : b.precio_kg * casfasaKg
+  if (!b.es_cooperativa) return parteCasfasa == null ? null : redondea2(parteCasfasa)
+
+  const parteCoop = b.precio_kg_coop == null ? 0 : b.precio_kg_coop * coopKg(b)
+  if (parteCasfasa == null && b.precio_kg_coop == null) return null
+  return redondea2((parteCasfasa ?? 0) + parteCoop)
+}
+
+const redondea2 = (n: number) => Math.round(n * 100) / 100
 
 export const fmtMXN = (n: number | null | undefined) =>
   n == null ? '—' : `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

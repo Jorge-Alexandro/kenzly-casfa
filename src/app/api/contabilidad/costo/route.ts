@@ -42,22 +42,27 @@ export async function POST(request: Request) {
 
   const precio_kg = num(b?.precio_kg)
   const kgNetos = Number(entrada.kg_netos) || 0
-
-  // Kilos pagables. Para las boletas normales es todo el neto; para las de la
-  // cooperativa FLO (Chula Vista) es sólo el excedente sobre la estimación, o
-  // el ajuste manual si Contabilidad lo fija (kg_pagable), acotado a [0, neto].
   const esCoop = esCooperativa(entrada.comunidad as string | null)
-  let kg_pagable: number | null = null // lo que se guarda como ajuste manual
+
+  // Los ajustes por boleta (kg_pagable y precio de la cooperativa) se PRESERVAN
+  // si no vienen en el body: reguardar sólo el precio del excedente no debe
+  // borrar un ajuste previo, ni al revés.
+  const { data: prev } = esCoop
+    ? await supabase
+        .from('entrada_costo')
+        .select('kg_pagable, precio_kg_coop')
+        .eq('entrada_id', entrada_id)
+        .maybeSingle()
+    : { data: null }
+
+  // Kilos del excedente (CASFASA) sobre los que se paga a precio_kg. Para las
+  // boletas normales es todo el neto; para las de la cooperativa FLO es sólo el
+  // excedente sobre la estimación, o el ajuste manual (kg_pagable) en [0, neto].
+  let kg_pagable: number | null = null
   let baseKg = kgNetos
+  let precio_kg_coop: number | null = null
   if (esCoop) {
-    // ¿Vino kg_pagable en el body? Si no, se PRESERVA el que ya tenía la boleta
-    // (reguardar sólo el precio no debe borrar un ajuste manual previo).
     const mandaPagable = !!b && Object.prototype.hasOwnProperty.call(b, 'kg_pagable')
-    const { data: prev } = await supabase
-      .from('entrada_costo')
-      .select('kg_pagable')
-      .eq('entrada_id', entrada_id)
-      .maybeSingle()
     const manual = mandaPagable
       ? num(b?.kg_pagable)
       : prev?.kg_pagable == null
@@ -71,8 +76,25 @@ export async function POST(request: Request) {
       const asignacion = await getAsignacionCoop(supabase)
       baseKg = asignacion.get(entrada_id)?.kg_casfasa ?? kgNetos
     }
+
+    // Precio de la parte de la cooperativa (FLO). Se preserva si no vino.
+    const mandaCoop = !!b && Object.prototype.hasOwnProperty.call(b, 'precio_kg_coop')
+    precio_kg_coop = mandaCoop
+      ? num(b?.precio_kg_coop)
+      : prev?.precio_kg_coop == null
+        ? null
+        : Number(prev.precio_kg_coop)
   }
-  const importe = precio_kg == null ? null : Math.round(precio_kg * baseKg * 100) / 100
+
+  // Importe = excedente (CASFASA) a precio_kg + parte cooperativa (FLO) a
+  // precio_kg_coop. En boletas normales sólo cuenta precio_kg × kg_netos.
+  const coopKg = Math.round((kgNetos - baseKg) * 1000) / 1000
+  const parteCasfasa = precio_kg == null ? null : precio_kg * baseKg
+  const parteCoop = esCoop && precio_kg_coop != null ? precio_kg_coop * coopKg : 0
+  const importe =
+    parteCasfasa == null && parteCoop === 0
+      ? null
+      : Math.round(((parteCasfasa ?? 0) + parteCoop) * 100) / 100
 
   // OJO: aquí NO se tocan `importe_pagado` ni `factura`. El total pagado lo
   // mantiene el trigger sumando los abonos (entrada_pago) y las facturas viven
@@ -81,6 +103,7 @@ export async function POST(request: Request) {
     entrada_id,
     org_id: r.session.orgId,
     precio_kg,
+    precio_kg_coop,
     importe,
     kg_pagable,
     observaciones: txt(b?.observaciones),
@@ -93,5 +116,5 @@ export async function POST(request: Request) {
     .upsert(fila, { onConflict: 'entrada_id' })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  return NextResponse.json({ ok: true, importe, base_kg: baseKg, kg_pagable })
+  return NextResponse.json({ ok: true, importe, base_kg: baseKg, kg_pagable, precio_kg_coop })
 }

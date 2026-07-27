@@ -9,6 +9,7 @@ export * from '@/lib/contabilidad/tipos'
 
 interface CostoEmbed {
   precio_kg: number | null
+  precio_kg_coop: number | null
   importe: number | null
   importe_pagado: number | null
   factura: string | null
@@ -40,7 +41,7 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
       .select(
         'id, folio, fecha_acopio, proveedor_nombre, comunidad, municipio, especie, tipo,' +
           ' total_sacos, kg_netos, quintales,' +
-          ' entrada_costo ( precio_kg, importe, importe_pagado, factura, kg_pagable ),' +
+          ' entrada_costo ( precio_kg, precio_kg_coop, importe, importe_pagado, factura, kg_pagable ),' +
           ' entrada_pago ( id, fecha, monto, metodo, referencia, observaciones ),' +
           ' entrada_factura ( id, folio, fecha, monto, uuid_fiscal )',
       )
@@ -80,6 +81,7 @@ export async function getBoletasConCosto(): Promise<BoletaCosto[]> {
       kg_netos: kgNetos,
       quintales: e.quintales == null ? null : Number(e.quintales),
       precio_kg: c?.precio_kg == null ? null : Number(c.precio_kg),
+      precio_kg_coop: c?.precio_kg_coop == null ? null : Number(c.precio_kg_coop),
       importe: c?.importe == null ? null : Number(c.importe),
       importe_pagado: c?.importe_pagado == null ? 0 : Number(c.importe_pagado),
       factura: c?.factura ?? null,

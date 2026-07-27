@@ -162,27 +162,30 @@ export function armarQQAcopiados(boletas: BoletaConcentrado[]): QQAcopiados {
   return { tipos, filas, totalPorTipo, total, cacao }
 }
 
-/** QQ por cooperativa (persona moral) y el bloque de socios individuales. */
+/** QQ de café (y kg de cacao aparte) por cooperativa y el bloque de individuales. */
 export function armarCooperativas(boletas: BoletaConcentrado[]): ReparteCooperativas {
+  const nueva = (nombre: string, esSociedad: boolean): FilaCooperativa => ({
+    nombre, esSociedad, boletas: 0, cafe_kg: 0, cafe_qq: 0, cacao_kg: 0, lotes: 0, importe: 0,
+  })
   const porSociedad = new Map<string, FilaCooperativa>()
-  const individuales: FilaCooperativa = {
-    nombre: 'CASFA — socios individuales', esSociedad: false,
-    boletas: 0, kg: 0, qq: 0, lotes: 0, importe: 0,
-  }
+  const individuales = nueva('CASFA — socios individuales', false)
 
   const sumar = (f: FilaCooperativa, b: BoletaConcentrado) => {
     f.boletas++
-    f.kg = Math.round((f.kg + b.kg_netos) * 100) / 100
-    f.qq = Math.round((f.qq + (b.quintales ?? 0)) * 10000) / 10000
     f.importe = Math.round((f.importe + (b.importe ?? 0)) * 100) / 100
-    f.lotes = enLotes(f.qq)
+    // El cacao no lleva quintal: va aparte en kilos, nunca como QQ.
+    if (b.tipo_cafe === 'CACAO') {
+      f.cacao_kg = Math.round((f.cacao_kg + b.kg_netos) * 100) / 100
+    } else {
+      f.cafe_kg = Math.round((f.cafe_kg + b.kg_netos) * 100) / 100
+      f.cafe_qq = Math.round((f.cafe_qq + (b.quintales ?? 0)) * 10000) / 10000
+      f.lotes = enLotes(f.cafe_qq)
+    }
   }
 
   for (const b of boletas) {
     if (b.tipo_persona === 'moral') {
-      const f =
-        porSociedad.get(b.proveedor) ??
-        { nombre: b.proveedor, esSociedad: true, boletas: 0, kg: 0, qq: 0, lotes: 0, importe: 0 }
+      const f = porSociedad.get(b.proveedor) ?? nueva(b.proveedor, true)
       sumar(f, b)
       porSociedad.set(b.proveedor, f)
     } else {
@@ -190,17 +193,16 @@ export function armarCooperativas(boletas: BoletaConcentrado[]): ReparteCooperat
     }
   }
 
-  const sociedades = Array.from(porSociedad.values()).sort((a, b) => b.qq - a.qq)
-  const total: FilaCooperativa = {
-    nombre: 'TOTAL ACOPIO', esSociedad: false, boletas: 0, kg: 0, qq: 0, lotes: 0, importe: 0,
-  }
+  const sociedades = Array.from(porSociedad.values()).sort((a, b) => b.cafe_qq - a.cafe_qq)
+  const total = nueva('TOTAL ACOPIO', false)
   for (const f of [...sociedades, individuales]) {
     total.boletas += f.boletas
-    total.kg = Math.round((total.kg + f.kg) * 100) / 100
-    total.qq = Math.round((total.qq + f.qq) * 10000) / 10000
+    total.cafe_kg = Math.round((total.cafe_kg + f.cafe_kg) * 100) / 100
+    total.cafe_qq = Math.round((total.cafe_qq + f.cafe_qq) * 10000) / 10000
+    total.cacao_kg = Math.round((total.cacao_kg + f.cacao_kg) * 100) / 100
     total.importe = Math.round((total.importe + f.importe) * 100) / 100
   }
-  total.lotes = enLotes(total.qq)
+  total.lotes = enLotes(total.cafe_qq)
 
   return { sociedades, individuales, total }
 }

@@ -78,8 +78,13 @@ export interface FilaCooperativa {
   nombre: string
   esSociedad: boolean
   boletas: number
-  kg: number
-  qq: number
+  /** Kilos netos de café (sin cacao). */
+  cafe_kg: number
+  /** Quintales de café. */
+  cafe_qq: number
+  /** Kilos de cacao (aparte: no lleva quintal). */
+  cacao_kg: number
+  /** Lotes de exportación, a partir de los quintales de café. */
   lotes: number
   importe: number
 }

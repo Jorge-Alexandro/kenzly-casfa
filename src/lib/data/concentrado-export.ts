@@ -79,28 +79,29 @@ export async function buildConcentradoExport(f: FiltrosConcentrado): Promise<{
     ['Periodo', periodo],
     ['Lote', `${LOTE_QQ} qq`],
     [],
-    ['#', 'SOCIEDAD', 'BOLETAS', 'KILOS NETOS', 'QQ', 'LOTES', 'IMPORTE'],
+    ['#', 'SOCIEDAD', 'BOLETAS', 'CAFÉ KG', 'CAFÉ QQ', 'LOTES', 'CACAO KG', 'IMPORTE'],
     ...coops.sociedades.map((s, i) => [
-      i + 1, s.nombre, s.boletas, r2(s.kg), r2(s.qq), r2(s.lotes), nz(s.importe),
+      i + 1, s.nombre, s.boletas, r2(s.cafe_kg), r2(s.cafe_qq), r2(s.lotes), nz(s.cacao_kg), nz(s.importe),
     ]),
     [
       '', 'TOTAL COOPERATIVAS',
       coops.sociedades.reduce((a, s) => a + s.boletas, 0),
-      r2(coops.sociedades.reduce((a, s) => a + s.kg, 0)),
-      r2(coops.sociedades.reduce((a, s) => a + s.qq, 0)),
-      r2(coops.sociedades.reduce((a, s) => a + s.qq, 0) / LOTE_QQ),
+      r2(coops.sociedades.reduce((a, s) => a + s.cafe_kg, 0)),
+      r2(coops.sociedades.reduce((a, s) => a + s.cafe_qq, 0)),
+      r2(coops.sociedades.reduce((a, s) => a + s.cafe_qq, 0) / LOTE_QQ),
+      r2(coops.sociedades.reduce((a, s) => a + s.cacao_kg, 0)),
       r2(coops.sociedades.reduce((a, s) => a + s.importe, 0)),
     ],
     [],
     [
       '', coops.individuales.nombre, coops.individuales.boletas,
-      r2(coops.individuales.kg), r2(coops.individuales.qq),
-      r2(coops.individuales.lotes), nz(coops.individuales.importe),
+      r2(coops.individuales.cafe_kg), r2(coops.individuales.cafe_qq),
+      r2(coops.individuales.lotes), nz(coops.individuales.cacao_kg), nz(coops.individuales.importe),
     ],
     [],
     [
-      '', 'TOTAL ACOPIO', coops.total.boletas, r2(coops.total.kg),
-      r2(coops.total.qq), r2(coops.total.lotes), r2(coops.total.importe),
+      '', 'TOTAL ACOPIO', coops.total.boletas, r2(coops.total.cafe_kg),
+      r2(coops.total.cafe_qq), r2(coops.total.lotes), r2(coops.total.cacao_kg), r2(coops.total.importe),
     ],
   ]
 

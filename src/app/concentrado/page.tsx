@@ -171,9 +171,10 @@ export default async function ConcentradoPage({
                     <th className="px-3 py-2">#</th>
                     <th className="px-3 py-2">Sociedad</th>
                     <th className="px-3 py-2 text-right">Boletas</th>
-                    <th className="px-3 py-2 text-right">Kg netos</th>
-                    <th className="px-3 py-2 text-right">QQ</th>
+                    <th className="px-3 py-2 text-right">Café kg</th>
+                    <th className="px-3 py-2 text-right">Café QQ</th>
                     <th className="px-3 py-2 text-right">Lotes</th>
+                    <th className="border-l border-slate-200 px-3 py-2 text-right">Cacao kg</th>
                     <th className="px-3 py-2 text-right">Importe</th>
                   </tr>
                 </thead>
@@ -183,9 +184,12 @@ export default async function ConcentradoPage({
                       <td className="px-3 py-2 text-slate-400">{i + 1}</td>
                       <td className="px-3 py-2 text-slate-800">{s.nombre}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-slate-500">{s.boletas}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-slate-700">{fmtNum(s.kg, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-slate-800">{fmtNum(s.qq, 2)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-700">{fmtNum(s.cafe_kg, 2)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-slate-800">{fmtNum(s.cafe_qq, 2)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-orange-700">{fmtNum(s.lotes, 2)}</td>
+                      <td className="border-l border-slate-100 px-3 py-2 text-right tabular-nums text-amber-700">
+                        {s.cacao_kg > 0.005 ? fmtNum(s.cacao_kg, 2) : '—'}
+                      </td>
                       <td className="px-3 py-2 text-right tabular-nums text-slate-600">{fmtMXN(s.importe)}</td>
                     </tr>
                   ))}
@@ -193,9 +197,12 @@ export default async function ConcentradoPage({
                     <td className="px-3 py-2" />
                     <td className="px-3 py-2 font-medium text-sky-900">{coops.individuales.nombre}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-sky-700">{coops.individuales.boletas}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-sky-800">{fmtNum(coops.individuales.kg, 2)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-sky-900">{fmtNum(coops.individuales.qq, 2)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-sky-800">{fmtNum(coops.individuales.cafe_kg, 2)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-sky-900">{fmtNum(coops.individuales.cafe_qq, 2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-sky-800">{fmtNum(coops.individuales.lotes, 2)}</td>
+                    <td className="border-l border-sky-100 px-3 py-2 text-right tabular-nums text-amber-700">
+                      {coops.individuales.cacao_kg > 0.005 ? fmtNum(coops.individuales.cacao_kg, 2) : '—'}
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums text-sky-800">{fmtMXN(coops.individuales.importe)}</td>
                   </tr>
                 </tbody>
@@ -204,9 +211,10 @@ export default async function ConcentradoPage({
                     <td className="px-3 py-2" />
                     <td className="px-3 py-2">TOTAL ACOPIO</td>
                     <td className="px-3 py-2 text-right tabular-nums">{coops.total.boletas}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(coops.total.kg, 2)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(coops.total.qq, 2)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(coops.total.cafe_kg, 2)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtNum(coops.total.cafe_qq, 2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtNum(coops.total.lotes, 2)}</td>
+                    <td className="border-l border-slate-200 px-3 py-2 text-right tabular-nums text-amber-700">{fmtNum(coops.total.cacao_kg, 2)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtMXN(coops.total.importe)}</td>
                   </tr>
                 </tfoot>
