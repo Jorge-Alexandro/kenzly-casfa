@@ -132,13 +132,21 @@ export default function FichaWizard({
     )
   }, [tipo, templates])
 
-  // Productores compatible with the ficha cultivo.
+  // Productores compatibles con el cultivo de la ficha. El café lleva DOS
+  // padrones (robusta y árabe): una ficha de robusta solo muestra robusteros y
+  // una de árabe solo los de árabe (cafe_variedad). Los de café sin variedad
+  // marcada se tratan como robusta (padrón viejo de Finca Chula Vista).
   const productoresFiltrados = useMemo(() => {
     if (!tipo) return []
     const cultivo = TIPO_FICHA_CULTIVO[tipo]
     const q = prodQuery.trim().toLowerCase()
     return productores
       .filter((p) => p.tipo_productor === cultivo || p.tipo_productor === 'mixto')
+      .filter((p) => {
+        if (cultivo !== 'cafe') return true
+        const variedad = p.cafe_variedad ?? 'robusta'
+        return tipo === 'arabe' ? variedad === 'arabe' : variedad === 'robusta'
+      })
       .filter(
         (p) =>
           !q ||

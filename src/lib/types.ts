@@ -250,6 +250,9 @@ export interface ProductorLite {
   codigo: string
   nombre_completo: string
   tipo_productor: TipoCultivo
+  // Solo café: robusta | arabe (separa los dos padrones de café). NULL en
+  // tropicales y en café sin marcar (se trata como robusta).
+  cafe_variedad: 'robusta' | 'arabe' | null
   // Van en el caché offline porque el promotor los necesita en campo: hay
   // homónimos entre comunidades y sin este dato no puede elegir al correcto.
   comunidad: string | null

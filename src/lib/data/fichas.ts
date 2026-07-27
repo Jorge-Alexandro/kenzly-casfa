@@ -60,10 +60,31 @@ export async function getFormTemplates(): Promise<FormTemplate[]> {
 // Lite catalogs for the capture selectors.
 export async function getProductoresLite(): Promise<ProductorLite[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const primero = await supabase
     .from('productores')
-    .select('id, codigo, nombre_completo, tipo_productor, comunidad, municipio')
+    .select('id, codigo, nombre_completo, tipo_productor, cafe_variedad, comunidad, municipio')
     .order('nombre_completo')
+  // Antes de correr la migración 0043 la columna cafe_variedad no existe. En vez
+  // de tumbar la captura de fichas, se reintenta sin ella (todo el café se trata
+  // como robusta hasta que la migración corra).
+  const fallback =
+    primero.error && /cafe_variedad/.test(primero.error.message)
+      ? await supabase
+          .from('productores')
+          .select('id, codigo, nombre_completo, tipo_productor, comunidad, municipio')
+          .order('nombre_completo')
+      : null
+  type FilaProd = {
+    id: string
+    codigo: string
+    nombre_completo: string
+    tipo_productor: ProductorLite['tipo_productor']
+    cafe_variedad?: ProductorLite['cafe_variedad']
+    comunidad: string | null
+    municipio: string | null
+  }
+  const data = (fallback?.data ?? primero.data) as FilaProd[] | null
+  const error = fallback ? fallback.error : primero.error
   if (error) throw new Error(`getProductoresLite: ${error.message}`)
 
   // Estatus de certificación vigente por productor: el nivel del año más
@@ -97,6 +118,8 @@ export async function getProductoresLite(): Promise<ProductorLite[]> {
     const e = nivelPorProd.get(p.id)
     return {
       ...p,
+      // Falta si la migración 0043 aún no corrió: se asume robusta.
+      cafe_variedad: p.cafe_variedad ?? null,
       estatus_nivel: (e?.nivel ?? null) as ProductorLite['estatus_nivel'],
       estatus_anio: e?.anio ?? null,
       plantas_entregadas: plantasPorProd.get(p.id) ?? [],
