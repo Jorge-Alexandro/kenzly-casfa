@@ -1,7 +1,7 @@
 // Nuevo historial: elegir parcela (Server Component + picker).
 import { redirect } from 'next/navigation'
 import { getSessionResult } from '@/lib/session'
-import { getParcelasLite } from '@/lib/data/fichas'
+import { getParcelasLite, getProductoresLite } from '@/lib/data/fichas'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import ParcelaPicker from '@/components/historial/ParcelaPicker'
@@ -13,13 +13,16 @@ export default async function NuevoHistorialPage() {
   if (result.kind === 'no-auth') redirect('/login')
   if (result.kind === 'no-membership') return <NoMembership />
 
-  const parcelas = await getParcelasLite()
+  const [parcelas, productores] = await Promise.all([
+    getParcelasLite(),
+    getProductoresLite(),
+  ])
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
       <div className="min-h-0 flex-1 overflow-auto">
-        <ParcelaPicker parcelas={parcelas} />
+        <ParcelaPicker parcelas={parcelas} productores={productores} />
       </div>
     </div>
   )

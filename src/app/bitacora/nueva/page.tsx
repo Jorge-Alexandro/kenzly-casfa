@@ -3,7 +3,7 @@
 //  - ?ficha=ID: bitácora anexo de esa ficha (parcela y año preseleccionados).
 import { redirect } from 'next/navigation'
 import { getSessionResult } from '@/lib/session'
-import { getParcelasLite, getFichaDetalle } from '@/lib/data/fichas'
+import { getParcelasLite, getProductoresLite, getFichaDetalle } from '@/lib/data/fichas'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import BitacoraEditor from '@/components/bitacora/BitacoraEditor'
@@ -56,12 +56,20 @@ export default async function NuevaBitacoraPage({
   }
 
   // --- Bitácora suelta ---
-  const parcelas = await getParcelasLite()
+  const [parcelas, productores] = await Promise.all([
+    getParcelasLite(),
+    getProductoresLite(),
+  ])
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
       <div className="min-h-0 flex-1 overflow-auto">
-        <BitacoraEditor mode="nueva" parcelas={parcelas} anioInicial={anioActual} />
+        <BitacoraEditor
+          mode="nueva"
+          parcelas={parcelas}
+          productores={productores}
+          anioInicial={anioActual}
+        />
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ import BitacoraEditor from '@/components/bitacora/BitacoraEditor'
 import HistorialEditor from '@/components/historial/HistorialEditor'
 import { leerCatalogos } from '@/lib/offline/db'
 import { codigoCorto } from '@/lib/format'
-import ParcelaBuscador from '@/components/ParcelaBuscador'
+import ProductorParcelaBuscador, { type ProductorMin } from '@/components/ProductorParcelaBuscador'
 import PendientesLocales from '@/components/PendientesLocales'
 import type { ParcelaLite } from '@/lib/types'
 
@@ -131,17 +131,19 @@ function Marco({
   )
 }
 
-// Hook que lee las parcelas cacheadas (IndexedDB) para captura offline.
+// Hook que lee parcelas + productores cacheados (IndexedDB) para captura offline.
 function useParcelasCache() {
   const [estado, setEstado] = useState<
-    { fase: 'cargando' } | { fase: 'listo'; parcelas: ParcelaLite[] } | { fase: 'sin_datos' }
+    | { fase: 'cargando' }
+    | { fase: 'listo'; parcelas: ParcelaLite[]; productores: ProductorMin[] }
+    | { fase: 'sin_datos' }
   >({ fase: 'cargando' })
   useEffect(() => {
     leerCatalogos()
       .then((c) =>
         setEstado(
           c && c.parcelas.length > 0
-            ? { fase: 'listo', parcelas: c.parcelas }
+            ? { fase: 'listo', parcelas: c.parcelas, productores: c.productores }
             : { fase: 'sin_datos' },
         ),
       )
@@ -168,6 +170,7 @@ function BitacoraOffline({ onGuardada }: { onGuardada: () => void }) {
     <BitacoraEditor
       mode="nueva"
       parcelas={est.parcelas}
+      productores={est.productores}
       anioInicial={new Date().getFullYear()}
       onGuardada={onGuardada}
     />
@@ -197,10 +200,11 @@ function HistorialOffline({ onGuardado }: { onGuardado: () => void }) {
   return (
     <div className="mx-auto max-w-md p-6">
       <label className="mb-1 block text-sm font-medium text-slate-700">
-        Elige la parcela
+        Elige el productor y su parcela
       </label>
-      <ParcelaBuscador
+      <ProductorParcelaBuscador
         parcelas={est.parcelas}
+        productores={est.productores}
         value=""
         onChange={(id) => {
           const p = est.parcelas.find((x) => x.id === id)

@@ -17,10 +17,12 @@ import type { ParcelaLite } from '@/lib/types'
 import { codigoCorto } from '@/lib/format'
 import { enviarOEncolarBitacora } from '@/lib/offline/sync'
 import { encolarBitacora } from '@/lib/offline/db'
+import ProductorParcelaBuscador, { type ProductorMin } from '@/components/ProductorParcelaBuscador'
 
 interface Props {
   mode: 'nueva' | 'editar'
   parcelas?: ParcelaLite[] // requerido en 'nueva'
+  productores?: ProductorMin[] // para elegir por productor en 'nueva'
   parcelaFija?: { id: string; label: string } // en 'editar' o vinculada a ficha
   anioInicial: number
   datosIniciales?: BitacoraDatos
@@ -41,6 +43,7 @@ interface Props {
 export default function BitacoraEditor({
   mode,
   parcelas = [],
+  productores = [],
   parcelaFija,
   anioInicial,
   datosIniciales,
@@ -138,8 +141,9 @@ export default function BitacoraEditor({
             Parcela
           </label>
           {mode === 'nueva' ? (
-            <ParcelaBuscador
+            <ProductorParcelaBuscador
               parcelas={parcelas}
+              productores={productores}
               value={parcelaId}
               onChange={setParcelaId}
             />
@@ -270,61 +274,6 @@ export default function BitacoraEditor({
           className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
         />
       </section>
-    </div>
-  )
-}
-
-// Buscador de parcela por nombre/código (reemplaza el <select> largo).
-function ParcelaBuscador({
-  parcelas,
-  value,
-  onChange,
-}: {
-  parcelas: ParcelaLite[]
-  value: string
-  onChange: (id: string) => void
-}) {
-  const [q, setQ] = useState('')
-  const [abierto, setAbierto] = useState(false)
-  const seleccionada = parcelas.find((p) => p.id === value)
-  const query = q.trim().toLowerCase()
-  const filtradas = query
-    ? parcelas.filter(
-        (p) =>
-          (p.nombre ?? '').toLowerCase().includes(query) ||
-          p.codigo_parcela.toLowerCase().includes(query),
-      )
-    : parcelas
-  return (
-    <div className="relative">
-      <input
-        value={abierto ? q : seleccionada ? `${seleccionada.nombre || codigoCorto(seleccionada.codigo_parcela, seleccionada.nombre)} · ${codigoCorto(seleccionada.codigo_parcela, seleccionada.nombre)}` : q}
-        onChange={(e) => { setQ(e.target.value); setAbierto(true) }}
-        onFocus={() => { setQ(''); setAbierto(true) }}
-        placeholder="Buscar parcela por nombre o código…"
-        className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-      />
-      {abierto && (
-        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
-          {filtradas.slice(0, 60).map((p) => {
-            const cod = codigoCorto(p.codigo_parcela, p.nombre)
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => { onChange(p.id); setAbierto(false); setQ('') }}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-orange-50"
-              >
-                <span className="font-medium text-slate-800">{p.nombre || cod}</span>
-                <span className="ml-2 text-xs text-slate-400">{cod}</span>
-              </button>
-            )
-          })}
-          {filtradas.length === 0 && (
-            <p className="px-3 py-2 text-sm text-slate-400">Sin coincidencias</p>
-          )}
-        </div>
-      )}
     </div>
   )
 }
