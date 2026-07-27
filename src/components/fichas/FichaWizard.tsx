@@ -800,7 +800,7 @@ function Convertidor({
 
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1.5 text-xs text-slate-600">
-      <span className="font-medium">El productor dijo:</span>
+      <span className="font-medium">Convertir:</span>
       <input
         type="number"
         value={cantidad}

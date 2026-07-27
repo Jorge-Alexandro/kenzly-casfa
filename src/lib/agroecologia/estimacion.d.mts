@@ -4,6 +4,9 @@ export const CACAO_IM_DEFAULT: number
 export const CACAO_MUESTRA_ARBOLES: number
 export const CAFE_CONSTANTE: number
 export const OQ_ORO_KG: number
+export const CAFE_UVA_POR_ORO: number
+export const UVA_KG_POR_QUINTAL: number
+export function qqAUva(qq: number): number
 
 export interface FactorEscalon {
   hasta: number
@@ -43,11 +46,15 @@ export interface CafeResultado {
   factor: number
   /** Quintales por hectárea (invariante de base). */
   qq_ha: number
+  /** Café uva (cereza) por hectárea, en kg. */
+  uva_kg_ha: number
   superficie_ha?: number
   /** Quintales totales de la parcela. */
   qq?: number
   /** Kg en la base del cultivo (cereza robusta / pergamino árabe / oro). */
   kg?: number
+  /** Café uva (cereza) total de la parcela, en kg. */
+  uva_kg?: number
   tm?: number
 }
 export function estimarCafe(

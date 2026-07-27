@@ -22,6 +22,16 @@ export const CACAO_IM_DEFAULT = 22;         // Índice de Mazorca (mazorcas por 
 export const CACAO_MUESTRA_ARBOLES = 10;    // se muestrean 10 árboles productivos
 export const CAFE_CONSTANTE = 640000;       // valor constante de la fórmula de café
 export const OQ_ORO_KG = 45.35;             // kg por quintal oro (base común / default)
+// Café UVA (cereza fresca) por kg de café ORO (verde). CASFA usa 5:1, así que
+// 1 quintal oro (45.35 kg) ≈ 226.75 kg de uva. Es la base para reportar la
+// producción en uva, que es como se recibe en el acopio.
+export const CAFE_UVA_POR_ORO = 5;
+export const UVA_KG_POR_QUINTAL = OQ_ORO_KG * CAFE_UVA_POR_ORO; // 226.75
+
+/** Convierte quintales (oro, invariante) a kg de café uva/cereza. */
+export function qqAUva(qq) {
+  return num(qq) * UVA_KG_POR_QUINTAL;
+}
 
 // Tabla del "factor de categoría productiva" del café, por promedio de
 // cerezo/bandola (frutos por bandola). Baja→51, Regular→100, Alta→162.
@@ -117,6 +127,8 @@ export function estimarCafe(p, cfg = {}) {
   const out = {
     factor,
     qq_ha: redondear(qq_ha, 3),
+    // Rendimiento en café uva (cereza) por hectárea, base de acopio.
+    uva_kg_ha: redondear(qqAUva(qq_ha), 2),
   };
 
   // Si conocemos la superficie, escalamos a totales de la parcela.
@@ -127,6 +139,7 @@ export function estimarCafe(p, cfg = {}) {
     out.superficie_ha = ha;
     out.qq = redondear(qq, 3);
     out.kg = redondear(kg, 2);
+    out.uva_kg = redondear(qqAUva(qq), 2);    // total en café uva de la parcela
     out.tm = redondear(kg / 1000, 4);
   }
   return out;

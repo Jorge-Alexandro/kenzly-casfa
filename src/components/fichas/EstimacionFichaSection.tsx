@@ -83,13 +83,29 @@ export default function EstimacionFichaSection({
   const resultado = useMemo(() => {
     if (esCacao) {
       const r = estimarCacao({ promedio_mazorcas: promedioCacao, n_arboles: +nArboles || 0 }, {})
-      return { promedio: promedioCacao, kg: (r.kg_seco ?? null) as number | null, qq: null as number | null, factor_im: CACAO_IM_DEFAULT }
+      return {
+        promedio: promedioCacao,
+        kg: (r.kg_seco ?? null) as number | null,
+        qq: null as number | null,
+        qq_ha: null as number | null,
+        uva_kg: null as number | null,
+        factor_im: CACAO_IM_DEFAULT,
+      }
     }
     const r = estimarCafe(
       { promedio_cerezo_bandola: promedioCafe, plantas_ha: +plantasHa || 0, superficie_ha: +superficie || undefined },
       { kgPorQuintal },
     )
-    return { promedio: promedioCafe, kg: (r.kg ?? null) as number | null, qq: (r.qq ?? r.qq_ha ?? null) as number | null, factor_im: r.factor as number }
+    return {
+      promedio: promedioCafe,
+      kg: (r.kg ?? null) as number | null,
+      // qq total del predio y rendimiento por hectárea (el SIC quiere ambos).
+      qq: (r.qq ?? null) as number | null,
+      qq_ha: (r.qq_ha ?? null) as number | null,
+      // Producción en café uva (cereza), base de acopio.
+      uva_kg: (r.uva_kg ?? null) as number | null,
+      factor_im: r.factor as number,
+    }
   }, [esCacao, promedioCafe, promedioCacao, plantasHa, superficie, nArboles, kgPorQuintal])
 
   // Persiste en las respuestas de la ficha (mediciones + resultado).
@@ -107,6 +123,9 @@ export default function EstimacionFichaSection({
       est_factor_im: resultado.factor_im,
       est_kg: resultado.kg != null ? Math.round(resultado.kg * 100) / 100 : null,
       est_qq: resultado.qq != null ? Math.round(resultado.qq * 100) / 100 : null,
+      // Rendimiento por hectárea (boleta del SIC) y producción en café uva.
+      est_qq_ha: resultado.qq_ha != null ? Math.round(resultado.qq_ha * 1000) / 1000 : null,
+      est_uva_kg: resultado.uva_kg != null ? Math.round(resultado.uva_kg * 100) / 100 : null,
       ...patch,
     })
   }
@@ -233,17 +252,35 @@ export default function EstimacionFichaSection({
         </>
       )}
 
-      <div className="rounded-md bg-slate-50 px-3 py-2 text-sm">
-        <span className="text-slate-400">Estimación calculada:</span>{' '}
-        <span className="font-semibold tabular-nums text-slate-800">
-          {resultado.kg != null ? `${resultado.kg.toLocaleString('es-MX', { maximumFractionDigits: 2 })} kg` : '—'}
-        </span>
-        {resultado.qq != null && (
-          <span className="ml-2 text-slate-600">· {resultado.qq.toLocaleString('es-MX', { maximumFractionDigits: 2 })} qq</span>
+      <div className="space-y-1 rounded-md bg-slate-50 px-3 py-2 text-sm">
+        <div>
+          <span className="text-slate-500">Estimación calculada:</span>{' '}
+          <span className="font-semibold tabular-nums text-slate-800">
+            {resultado.kg != null ? `${resultado.kg.toLocaleString('es-MX', { maximumFractionDigits: 2 })} kg` : '—'}
+          </span>
+          {!esCacao && resultado.uva_kg != null && (
+            <span className="ml-2 tabular-nums text-slate-600">
+              · {resultado.uva_kg.toLocaleString('es-MX', { maximumFractionDigits: 0 })} kg uva
+            </span>
+          )}
+        </div>
+        {!esCacao && (
+          <div className="tabular-nums text-slate-600">
+            {resultado.qq_ha != null && (
+              <span className="font-medium">
+                {resultado.qq_ha.toLocaleString('es-MX', { maximumFractionDigits: 3 })} qq/oro/ha
+              </span>
+            )}
+            {resultado.qq != null && (
+              <span className="ml-2">
+                · {resultado.qq.toLocaleString('es-MX', { maximumFractionDigits: 2 })} qq total del predio
+              </span>
+            )}
+          </div>
         )}
-        <span className="ml-3 text-xs text-slate-400">
-          {esCacao ? `IM ${CACAO_IM_DEFAULT}` : `factor ${resultado.factor_im} · base ${tipo === 'arabe' ? 'pergamino 57.5' : 'cereza 80'} kg/qq`}
-        </span>
+        <div className="text-xs text-slate-500">
+          {esCacao ? `IM ${CACAO_IM_DEFAULT}` : `factor ${resultado.factor_im} · base ${tipo === 'arabe' ? 'pergamino 57.5' : 'cereza 80'} kg/qq · uva 5:1`}
+        </div>
       </div>
       <p className="text-xs text-slate-400">
         Las mediciones y el resultado se guardan en la ficha y salen en el PDF.

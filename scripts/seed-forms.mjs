@@ -43,11 +43,14 @@ const VIVERO_COLS = [
   { id: 'cantidad', label: 'Cantidad de plantas', tipo: 'number' },
 ]
 // Producción POR variedad (CHESPAL): si el inspector captura varias variedades,
-// cada una lleva su producción anterior y actual en la misma tabla.
+// cada una lleva su producción anterior y actual en la misma tabla, en quintales
+// y en café uva (cereza, kg) — como se recibe en el acopio.
 const VARIEDADES_COLS_PROD = [
   ...VARIEDADES_COLS,
   { id: 'prod_anterior_qq', label: 'Prod. anterior (qq)', tipo: 'number' },
   { id: 'prod_actual_qq', label: 'Prod. actual (qq)', tipo: 'number' },
+  { id: 'prod_anterior_uva_kg', label: 'Prod. anterior (uva, kg)', tipo: 'number' },
+  { id: 'prod_actual_uva_kg', label: 'Prod. actual (uva, kg)', tipo: 'number' },
 ]
 const VARIEDADES_COLS_ARABE = VARIEDADES_COLS_PROD
 const MESES = [
@@ -105,7 +108,9 @@ const ESTIMACION_SECCION = {
     f('est_superficie_ha', 'Superficie (ha)', 'number'),
     f('est_factor_im', 'Factor de carga (café) · Índice de mazorca IM (cacao)', 'number'),
     f('est_kg', 'Estimación de cosecha (kg)', 'number'),
-    f('est_qq', 'Estimación de cosecha (quintales)', 'number'),
+    f('est_uva_kg', 'Estimación de cosecha (café uva, kg)', 'number'),
+    f('est_qq_ha', 'Rendimiento estimado (qq/oro/ha)', 'number'),
+    f('est_qq', 'Estimación de cosecha total del predio (quintales)', 'number'),
   ],
 }
 
