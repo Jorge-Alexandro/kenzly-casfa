@@ -39,29 +39,19 @@ export async function buildConcentradoExport(f: FiltrosConcentrado): Promise<{
     ]),
   ]
 
-  // ── Hoja 2: QQ acopiados (pivote mes × tipo de café) ─────────────────────
-  const t = qqAcopiados.tipos
-  const qq: CellValue[][] = [
-    ['QQ ACOPIADOS'],
+  // ── QQ acopiados: una hoja de resumen + una hoja por tipo de café ────────
+  // (mismo formato de pestañas que ve Francisco en la app).
+  const resumenQQ: CellValue[][] = [
+    ['QQ ACOPIADOS — RESUMEN'],
     ['Periodo', periodo],
     [],
-    // Dos filas de encabezado: el tipo de café abarca sus tres columnas.
-    ['', ...t.flatMap((x) => [x, '', '']), 'TOTAL', '', ''],
-    ['MES', ...t.flatMap(() => ['KILOS NETOS', 'QQ', 'IMPORTE']), 'KILOS NETOS', 'QQ', 'IMPORTE'],
-    ...qqAcopiados.filas.map((fila) => [
-      fila.mes,
-      ...t.flatMap((x) => {
-        const c = fila.porTipo[x]
-        return c ? [nz(c.kg), nz(c.qq), nz(c.importe)] : [null, null, null]
-      }),
-      r2(fila.total.kg), r2(fila.total.qq), r2(fila.total.importe),
-    ]),
+    ['TIPO DE CAFÉ', 'BOLETAS', 'KILOS NETOS', 'QQ', 'IMPORTE'],
+    ...qqAcopiados.tipos.map((x) => {
+      const c = qqAcopiados.totalPorTipo[x]
+      return [x, c?.boletas ?? 0, nz(c?.kg ?? 0), nz(c?.qq ?? 0), nz(c?.importe ?? 0)]
+    }),
     [
-      'TOTAL GENERAL',
-      ...t.flatMap((x) => {
-        const c = qqAcopiados.totalPorTipo[x]
-        return c ? [r2(c.kg), r2(c.qq), r2(c.importe)] : [null, null, null]
-      }),
+      'TOTAL CAFÉ', qqAcopiados.total.boletas,
       r2(qqAcopiados.total.kg), r2(qqAcopiados.total.qq), r2(qqAcopiados.total.importe),
     ],
     [],
@@ -73,7 +63,29 @@ export async function buildConcentradoExport(f: FiltrosConcentrado): Promise<{
     ['Importe', r2(qqAcopiados.cacao.importe)],
   ]
 
-  // ── Hoja 3: Cooperativas ─────────────────────────────────────────────────
+  // Una hoja por tipo de café: sus meses con kilos, quintales e importe.
+  const hojasPorTipo: Sheet[] = qqAcopiados.tipos.map((tipo) => {
+    const filas = qqAcopiados.filas
+      .filter((f) => f.porTipo[tipo])
+      .map((f) => {
+        const c = f.porTipo[tipo]!
+        return [f.mes, c.boletas, r2(c.kg), r2(c.qq), r2(c.importe)] as CellValue[]
+      })
+    const tot = qqAcopiados.totalPorTipo[tipo]
+    return {
+      name: nombreHoja(tipo),
+      rows: [
+        [`QQ ACOPIADOS — ${tipo}`],
+        ['Periodo', periodo],
+        [],
+        ['MES', 'BOLETAS', 'KILOS NETOS', 'QQ', 'IMPORTE'],
+        ...filas,
+        ['TOTAL', tot?.boletas ?? 0, r2(tot?.kg ?? 0), r2(tot?.qq ?? 0), r2(tot?.importe ?? 0)],
+      ],
+    }
+  })
+
+  // ── Cooperativas ─────────────────────────────────────────────────────────
   const cooperativas: CellValue[][] = [
     ['ACOPIO POR COOPERATIVA'],
     ['Periodo', periodo],
@@ -108,7 +120,8 @@ export async function buildConcentradoExport(f: FiltrosConcentrado): Promise<{
   return {
     sheets: [
       { name: 'Concentrado', rows: concentrado },
-      { name: 'QQ acopiados', rows: qq },
+      { name: 'QQ resumen', rows: resumenQQ },
+      ...hojasPorTipo,
       { name: 'Cooperativas', rows: cooperativas },
     ],
     resumen: {
@@ -117,4 +130,9 @@ export async function buildConcentradoExport(f: FiltrosConcentrado): Promise<{
       lotes: r2(qqAcopiados.total.qq / LOTE_QQ),
     },
   }
+}
+
+/** Excel no acepta : \ / ? * [ ] en el nombre de la hoja, y tope de 31. */
+function nombreHoja(n: string) {
+  return n.replace(/[:\\/?*[\]]/g, ' ').slice(0, 31)
 }

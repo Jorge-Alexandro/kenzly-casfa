@@ -9,6 +9,7 @@ import {
 } from '@/lib/data/concentrado'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
+import QQAcopiadosTabs from '@/components/concentrado/QQAcopiadosTabs'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,65 +94,8 @@ export default async function ConcentradoPage({
             <Caja label="Importe" value={fmtMXN(qq.total.importe)} />
           </div>
 
-          {/* ── QQ acopiados: mes × tipo de café ── */}
-          <section className="rounded-xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 px-4 py-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                QQ acopiados por mes y tipo de café
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 text-left" rowSpan={2}>Mes</th>
-                    {qq.tipos.map((t) => (
-                      <th key={t} className="border-l border-slate-200 px-3 py-2 text-center" colSpan={3}>
-                        {t}
-                      </th>
-                    ))}
-                    <th className="border-l border-slate-200 px-3 py-2 text-center" colSpan={3}>Total</th>
-                  </tr>
-                  <tr>
-                    {[...qq.tipos, 'TOTAL'].map((t) => (
-                      <Fragmentos key={t} />
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {qq.filas.map((fila) => (
-                    <tr key={fila.mes}>
-                      <td className="px-3 py-2 font-medium text-slate-700">{fila.mes}</td>
-                      {qq.tipos.map((t) => {
-                        const c = fila.porTipo[t]
-                        return (
-                          <Celdas key={t} kg={c?.kg} qqv={c?.qq} importe={c?.importe} />
-                        )
-                      })}
-                      <Celdas kg={fila.total.kg} qqv={fila.total.qq} importe={fila.total.importe} fuerte />
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-slate-50 font-semibold text-slate-700">
-                  <tr>
-                    <td className="px-3 py-2">TOTAL</td>
-                    {qq.tipos.map((t) => {
-                      const c = qq.totalPorTipo[t]
-                      return <Celdas key={t} kg={c?.kg} qqv={c?.qq} importe={c?.importe} />
-                    })}
-                    <Celdas kg={qq.total.kg} qqv={qq.total.qq} importe={qq.total.importe} fuerte />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <p className="px-4 py-2 text-xs text-slate-400">
-              Cada tipo muestra kilos netos · quintales · importe.
-              {qq.cacao.boletas > 0 && (
-                <> El cacao va aparte porque no lleva quintal: {qq.cacao.boletas} boletas
-                  {' · '}{fmtNum(qq.cacao.kg, 2)} kg{' · '}{fmtMXN(qq.cacao.importe)}.</>
-              )}
-            </p>
-          </section>
+          {/* ── QQ acopiados: pestañas por tipo de café ── */}
+          <QQAcopiadosTabs data={qq} />
 
           {/* ── Cooperativas ── */}
           <section className="rounded-xl border border-slate-200 bg-white">
@@ -228,31 +172,6 @@ export default async function ConcentradoPage({
 }
 
 const INPUT = 'rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-800'
-
-/** Los tres subencabezados (kilos · qq · importe) de cada tipo de café. */
-function Fragmentos() {
-  return (
-    <>
-      <th className="border-l border-slate-200 px-2 py-1.5 text-right font-normal">Kg</th>
-      <th className="px-2 py-1.5 text-right font-normal">QQ</th>
-      <th className="px-2 py-1.5 text-right font-normal">Importe</th>
-    </>
-  )
-}
-
-function Celdas({
-  kg, qqv, importe, fuerte,
-}: { kg?: number; qqv?: number; importe?: number; fuerte?: boolean }) {
-  const c = fuerte ? 'font-semibold text-slate-800' : 'text-slate-700'
-  const v = (n: number | undefined, d = 2) => (n ? fmtNum(n, d) : '')
-  return (
-    <>
-      <td className={`border-l border-slate-100 px-2 py-2 text-right tabular-nums ${c}`}>{v(kg)}</td>
-      <td className={`px-2 py-2 text-right tabular-nums ${c}`}>{v(qqv)}</td>
-      <td className={`px-2 py-2 text-right tabular-nums ${c}`}>{importe ? fmtMXN(importe) : ''}</td>
-    </>
-  )
-}
 
 function Caja({ label, value, destacado }: { label: string; value: string; destacado?: boolean }) {
   return (

@@ -419,6 +419,16 @@ function Detalle({
             <span className="font-semibold text-slate-800 tabular-nums">{fmtMXN(boleta.importe)}</span>
           </div>
 
+          {/* Pagó más de lo que dice el importe: casi siempre porque también se
+              pagó la parte FLO y falta capturar su precio. */}
+          {restante < -0.05 && boleta.precio_kg_coop == null && (
+            <p className="mt-2 rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+              Se pagó {fmtMXN(boleta.importe_pagado)} pero el importe es {fmtMXN(boleta.importe)}
+              {' '}({fmtMXN(-restante)} de más). Si también se pagó la parte de la cooperativa,
+              captura el <strong>Precio FLO</strong> aquí abajo para que cuadre.
+            </p>
+          )}
+
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <label className="text-xs text-slate-600">
               <span className="mb-0.5 block">Precio FLO /kg</span>
