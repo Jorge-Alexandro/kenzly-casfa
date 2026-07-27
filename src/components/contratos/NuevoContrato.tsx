@@ -4,7 +4,7 @@
 // editable); el tipo de café elige la plantilla y con ella la unidad/moneda y
 // las cláusulas. El importe se calcula en vivo, pero el SERVIDOR lo recalcula y
 // congela las cláusulas al guardar: aquí no se decide nada legalmente vinculante.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fmtDinero, type ContratoPlantilla, type VendedorLite } from '@/lib/contratos/tipos'
@@ -48,6 +48,14 @@ export default function NuevoContrato({
     () => plantillas.find((p) => `${p.especie}|${p.tipo}` === prodTipo) ?? null,
     [plantillas, prodTipo],
   )
+
+  // Divisa del contrato: por defecto la que trae el tipo de café (oro = USD de
+  // exportación; cereza/pergamino = MXN nacional), pero se puede cambiar si un
+  // trato específico se pacta en otra moneda.
+  const [moneda, setMoneda] = useState(plantillas[0]?.moneda ?? 'MXN')
+  useEffect(() => {
+    if (plantilla) setMoneda(plantilla.moneda)
+  }, [plantilla])
 
   // Búsqueda sin acentos por nombre, comunidad y municipio (igual que en acopio).
   const proveedoresFiltrados = useMemo(() => {
@@ -132,7 +140,7 @@ export default function NuevoContrato({
           especie: plantilla.especie,
           tipo: plantilla.tipo,
           unidad: plantilla.unidad,
-          moneda: plantilla.moneda,
+          moneda,
           ...terminos,
           quintales,
           arbitraje,
@@ -221,9 +229,15 @@ export default function NuevoContrato({
             <select value={prodTipo} onChange={(e) => setProdTipo(e.target.value)} className={INPUT}>
               {plantillas.map((p) => (
                 <option key={`${p.especie}|${p.tipo}`} value={`${p.especie}|${p.tipo}`}>
-                  {p.nombre}
+                  {p.nombre} ({p.moneda})
                 </option>
               ))}
+            </select>
+          </Campo>
+          <Campo label="Divisa">
+            <select value={moneda} onChange={(e) => setMoneda(e.target.value)} className={INPUT}>
+              <option value="MXN">MXN — pesos</option>
+              <option value="USD">USD — dólares</option>
             </select>
           </Campo>
           <Campo label="Kilos pactados *">
@@ -235,16 +249,16 @@ export default function NuevoContrato({
               value={quintales} onChange={(e) => setSacos(e.target.value)}
               disabled={!factor} className={INPUT} />
           </Campo>
-          <Campo label={`Precio por KILO (${plantilla?.moneda ?? 'MXN'}) *`}>
+          <Campo label={`Precio por KILO (${moneda}) *`}>
             <input type="number" min="0" step="0.0001" inputMode="decimal"
               value={terminos.precio_unitario} onChange={(e) => setPrecioKg(e.target.value)} className={INPUT} />
           </Campo>
-          <Campo label={`Precio por quintal (${plantilla?.moneda ?? 'MXN'})`}>
+          <Campo label={`Precio por quintal (${moneda})`}>
             <input type="number" min="0" step="0.01" inputMode="decimal"
               value={precioQuintal} onChange={(e) => setPrecioQq(e.target.value)}
               disabled={!factor} className={INPUT} />
           </Campo>
-          <Campo label={`Anticipo (${plantilla?.moneda ?? 'MXN'})`}>
+          <Campo label={`Anticipo (${moneda})`}>
             <input type="number" min="0" step="0.01" inputMode="decimal"
               value={terminos.anticipo} onChange={set(setTerminos, 'anticipo')} className={INPUT} />
           </Campo>
@@ -274,7 +288,7 @@ export default function NuevoContrato({
             </span>
           </span>
           <span className="text-lg font-semibold tabular-nums text-orange-700">
-            {fmtDinero(importe, plantilla?.moneda ?? 'MXN')}
+            {fmtDinero(importe, moneda)}
           </span>
         </div>
 
