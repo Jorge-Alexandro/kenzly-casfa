@@ -34,6 +34,7 @@ const TABS: { href: string; label: string; soloAdmin?: boolean; contador?: boole
   { href: '/fichas', label: 'Fichas' },
   { href: '/bitacora', label: 'Bitácora' },
   { href: '/historial', label: 'Historial' },
+  { href: '/asistencia', label: 'Asistencia' },
 ]
 
 export default function AppHeader({
