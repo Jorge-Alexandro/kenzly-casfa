@@ -331,6 +331,8 @@ export interface FichaDetalle {
   productor_id: string
   /** Por qué se anuló, si lo está. Sale impreso en el informe. */
   anulada_motivo: string | null
+  /** Nivel de certificación vigente del productor (para el PDF). */
+  nivel_certificacion: NivelCertificacion | null
   productor: {
     nombre_completo: string
     codigo: string

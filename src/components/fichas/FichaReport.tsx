@@ -6,7 +6,7 @@
 // "Descargar PDF" calls window.print(); print CSS (globals.css) hides the chrome.
 import Link from 'next/link'
 import type { FichaDetalle, FormCampo, FormSeccion, RolMembresia } from '@/lib/types'
-import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL } from '@/lib/types'
+import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL, NIVEL_CERT_LABEL } from '@/lib/types'
 import { MESES, normalizarDatos, type BitacoraActividad } from '@/lib/bitacora'
 import { HISTORIAL_CAMPOS } from '@/lib/historial'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
@@ -161,6 +161,16 @@ export default function FichaReport({
               <Td b>Hora de término</Td>
               <Td>{(r('hora_fin') as string) || '—'}</Td>
             </tr>
+            <tr>
+              <Td b>Nivel de certificación</Td>
+              <Td>
+                {data.nivel_certificacion
+                  ? NIVEL_CERT_LABEL[data.nivel_certificacion]
+                  : '—'}
+              </Td>
+              <Td b>Estado de la ficha</Td>
+              <Td>{ESTADO_FICHA_LABEL[ficha.estado]}</Td>
+            </tr>
           </tbody>
         </table>
 
@@ -241,10 +251,20 @@ export default function FichaReport({
               Comité de Evaluación Interna y por las Agencias de Certificación.
             </p>
             <div className="grid grid-cols-3 gap-6">
-              <Firma titulo="Productor" data={r('firma_productor') as string | null} />
+              <Firma
+                titulo="Productor"
+                data={r('firma_productor') as string | null}
+                nombre={(r('firma_productor_nombre') as string) || null}
+              />
               <Firma titulo="Inspector interno" data={r('firma_inspector') as string | null} />
               <Firma titulo="Comité de aprobación" data={r('firma_comite') as string | null} />
             </div>
+            {(r('firma_representante') as string) && (
+              <p className="mt-2 text-xs text-slate-600">
+                <strong>En ausencia del productor, lo representa:</strong>{' '}
+                {r('firma_representante') as string}
+              </p>
+            )}
           </>
         )}
 
@@ -547,7 +567,15 @@ function TablaCriterio({ campo, value }: { campo: FormCampo; value: unknown }) {
   )
 }
 
-function Firma({ titulo, data }: { titulo: string; data: string | null }) {
+function Firma({
+  titulo,
+  data,
+  nombre,
+}: {
+  titulo: string
+  data: string | null
+  nombre?: string | null
+}) {
   return (
     <div className="text-center">
       {data && data.startsWith('data:image') ? (
@@ -563,6 +591,7 @@ function Firma({ titulo, data }: { titulo: string; data: string | null }) {
       <div className="mt-1 border-t border-slate-400 pt-1 text-xs font-medium">
         {titulo}
       </div>
+      {nombre && <div className="text-xs text-slate-600">{nombre}</div>}
     </div>
   )
 }

@@ -395,6 +395,10 @@ const ROBUSTA = {
         f('nivel_recomendado', 'Nivel recomendado (hallazgo principal)', 'enum', NIVELES_SIC),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
         f('fecha_revision', 'Fecha de revisión', 'date'),
+        // Quién firma la información de la ficha; si el productor no está, quién
+        // lo representa (CHESPAL) — sale impreso junto a las firmas.
+        f('firma_productor_nombre', 'Nombre de quien firma la ficha', 'text'),
+        f('firma_representante', 'Si el productor está ausente, ¿quién lo representa? (nombre y parentesco)', 'text'),
         f('firma_productor', 'Firma del productor', 'signature'),
         f('firma_inspector', 'Firma del inspector', 'signature'),
         f('firma_comite', 'Firma del comité de aprobación', 'signature'),
@@ -652,6 +656,10 @@ const ARABE = {
         f('nivel_recomendado', 'Nivel recomendado (hallazgo principal)', 'enum', NIVELES_SIC),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
         f('fecha_revision', 'Fecha de revisión', 'date'),
+        // Quién firma la información de la ficha; si el productor no está, quién
+        // lo representa (CHESPAL) — sale impreso junto a las firmas.
+        f('firma_productor_nombre', 'Nombre de quien firma la ficha', 'text'),
+        f('firma_representante', 'Si el productor está ausente, ¿quién lo representa? (nombre y parentesco)', 'text'),
         f('firma_productor', 'Firma del productor', 'signature'),
         f('firma_inspector', 'Firma del inspector', 'signature'),
         f('firma_comite', 'Firma del comité de aprobación', 'signature'),
@@ -821,6 +829,10 @@ const TROPICALES = {
         f('nivel_recomendado', 'Nivel recomendado (hallazgo principal)', 'enum', NIVELES_SIC),
         f('fecha_revision', 'Fecha de revisión', 'date'),
         f('resultado_evaluacion', 'Resultado de la evaluación', 'enum', RESULTADO),
+        // Quién firma la información de la ficha; si el productor no está, quién
+        // lo representa (CHESPAL) — sale impreso junto a las firmas.
+        f('firma_productor_nombre', 'Nombre de quien firma la ficha', 'text'),
+        f('firma_representante', 'Si el productor está ausente, ¿quién lo representa? (nombre y parentesco)', 'text'),
         f('firma_productor', 'Firma del productor', 'signature'),
         f('firma_inspector', 'Firma del inspector', 'signature'),
         f('firma_comite', 'Firma del comité de aprobación', 'signature'),

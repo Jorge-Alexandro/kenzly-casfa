@@ -182,6 +182,20 @@ export async function getFichaDetalle(
     ? ficha.productores[0]
     : ficha.productores
 
+  // Nivel de certificación vigente del productor (el del año más reciente). Va
+  // impreso en el PDF: es el estatus que MAYACERT quiere ver en la ficha.
+  let nivelCertificacion: string | null = null
+  {
+    const { data: est } = await supabase
+      .from('certificacion_estatus')
+      .select('nivel, anio')
+      .eq('productor_id', ficha.productor_id)
+      .order('anio', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    nivelCertificacion = (est?.nivel as string | undefined) ?? null
+  }
+
   // Inspector name (RLS only exposes the current user's row; falls back to null).
   let inspectorNombre: string | null = null
   if (ficha.inspector_id) {
@@ -246,6 +260,7 @@ export async function getFichaDetalle(
     },
     productor_id: ficha.productor_id,
     anulada_motivo: ficha.anulada_motivo ?? null,
+    nivel_certificacion: nivelCertificacion as import('@/lib/types').NivelCertificacion | null,
     productor: {
       nombre_completo: prod?.nombre_completo ?? '—',
       codigo: prod?.codigo ?? '',
