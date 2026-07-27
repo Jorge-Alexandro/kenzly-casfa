@@ -188,15 +188,12 @@ export default function BitacoraEditor({
         onActividad={setActividad}
       />
 
-      {/* Actividades de cosecha */}
-      <GridActividades
-        actividades={cosecha}
-        onMarca={toggleMarca}
-        onActividad={setActividad}
-      />
-
-      {/* Cosecha por especie: fecha + kg EN UVA, separado árabe/robusta */}
+      {/* Periodo de cosecha (mes inicio/término) + kg en uva, separado por
+          especie. Va aquí arriba, junto a las actividades (CHESPAL). */}
       <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Periodo de cosecha
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <CosechaEspecie
             titulo="Café Arábica"
@@ -218,6 +215,13 @@ export default function BitacoraEditor({
           />
         </div>
       </section>
+
+      {/* Actividades de cosecha */}
+      <GridActividades
+        actividades={cosecha}
+        onMarca={toggleMarca}
+        onActividad={setActividad}
+      />
 
       {/* Insumos */}
       <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
@@ -278,7 +282,31 @@ export default function BitacoraEditor({
   )
 }
 
-// Cosecha por especie: fecha + kg en uva.
+// Meses para elegir el periodo de cosecha (el año lo da la bitácora). Se guarda
+// el nombre del mes, como en el LPA ("Mayo - Junio"). Acepta un valor viejo
+// (fecha) mostrándolo como opción, para no perder datos ya capturados.
+const MESES_COSECHA = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+function SelectMes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const esViejo = value && !MESES_COSECHA.includes(value)
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
+    >
+      <option value="">—</option>
+      {MESES_COSECHA.map((m) => (
+        <option key={m} value={m}>{m}</option>
+      ))}
+      {esViejo && <option value={value}>{value}</option>}
+    </select>
+  )
+}
+
+// Cosecha por especie: mes de inicio/término + kg en uva.
 function CosechaEspecie({
   titulo,
   fecha,
@@ -301,22 +329,12 @@ function CosechaEspecie({
       <p className="mb-2 text-sm font-semibold text-slate-700">{titulo}</p>
       <div className="mb-2 grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="mb-1 block text-xs text-slate-500">Inicio de cosecha</span>
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => onFecha(e.target.value)}
-            className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-          />
+          <span className="mb-1 block text-xs text-slate-500">Mes de inicio de cosecha</span>
+          <SelectMes value={fecha} onChange={onFecha} />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs text-slate-500">Término de cosecha</span>
-          <input
-            type="date"
-            value={fechaFin}
-            onChange={(e) => onFechaFin(e.target.value)}
-            className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-          />
+          <span className="mb-1 block text-xs text-slate-500">Mes de término de cosecha</span>
+          <SelectMes value={fechaFin} onChange={onFechaFin} />
         </label>
       </div>
       <label className="block">
