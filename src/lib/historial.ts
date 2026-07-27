@@ -14,7 +14,16 @@ export interface HistorialCampo {
 export const HISTORIAL_CAMPOS: HistorialCampo[] = [
   { id: 'estado_parcela', label: 'Estado de la parcela', tipo: 'enum', opciones: ['Tradicional', 'En conversión', 'Orgánico'] },
   { id: 'producto', label: 'Producto', tipo: 'text' },
-  { id: 'produccion_estimada_kg', label: 'Producción estimada (kg)', tipo: 'number' },
+  { id: 'cultivo_cafe', label: 'Tipo de café', tipo: 'enum', opciones: ['Arábica', 'Robusta', 'Ambos', 'No aplica'] },
+  // Producción estimada, separada por especie de café y en las dos unidades que
+  // maneja el SIC: kg (base del cultivo) y café uva (cereza, como se acopia).
+  { id: 'prod_est_arabica_kg', label: 'Prod. estimada Arábica (kg)', tipo: 'number' },
+  { id: 'prod_est_arabica_uva_kg', label: 'Prod. estimada Arábica (uva, kg)', tipo: 'number' },
+  { id: 'prod_est_robusta_kg', label: 'Prod. estimada Robusta (kg)', tipo: 'number' },
+  { id: 'prod_est_robusta_uva_kg', label: 'Prod. estimada Robusta (uva, kg)', tipo: 'number' },
+  { id: 'produccion_estimada_kg', label: 'Producción estimada total (kg)', tipo: 'number' },
+  { id: 'produccion_real_kg', label: 'Producción cosechada (kg)', tipo: 'number' },
+  { id: 'produccion_real_uva_kg', label: 'Producción cosechada (café uva, kg)', tipo: 'number' },
   { id: 'fertilizacion_composta_kg', label: 'Fertilización: composta (kg)', tipo: 'number' },
   { id: 'fertilizacion_fecha', label: 'Fertilización: fecha de aplicación', tipo: 'text' },
   { id: 'uso_estiercol', label: 'Uso de estiércol', tipo: 'enum', opciones: ['Sí', 'No'] },
