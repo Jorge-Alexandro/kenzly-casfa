@@ -178,19 +178,36 @@ export default function NuevaEntradaForm({
             }}
             className="mb-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
-          <select
-            value={productorId}
-            onChange={(e) => setProductorId(e.target.value)}
-            size={6}
-            className="w-full rounded-md border border-slate-300 px-1 py-1 text-sm"
+          {/* Lista de botones en vez de un <select size> nativo: en móvil el
+              listbox nativo no dejaba tocar la opción sin arrastrar toda la
+              lista. Un botón se selecciona con un solo toque. */}
+          <div
+            role="listbox"
+            className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-300"
           >
-            {proveedores.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre_completo}
-                {p.comunidad ? ` · ${p.comunidad}` : ''}
-              </option>
-            ))}
-          </select>
+            {proveedores.map((p) => {
+              const sel = p.id === productorId
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="option"
+                  aria-selected={sel}
+                  onClick={() => setProductorId(p.id)}
+                  className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm ${
+                    sel ? 'bg-orange-600 text-white' : 'text-slate-700 hover:bg-orange-50'
+                  }`}
+                >
+                  <span className="font-medium">{p.nombre_completo}</span>
+                  {(p.comunidad || p.municipio) && (
+                    <span className={`text-xs ${sel ? 'text-orange-100' : 'text-slate-400'}`}>
+                      {[p.comunidad, p.municipio].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
           {proveedores.length === 0 ? (
             <p className="mt-1 text-xs text-amber-700">
               Ningún proveedor coincide con «{busqueda}». Dalo de alta con “+ Nuevo proveedor”.
