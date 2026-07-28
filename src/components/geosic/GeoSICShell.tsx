@@ -133,6 +133,7 @@ export default function GeoSICShell({
           <ParcelaPanel
             parcela={selected}
             puedeValidar={puedeValidar}
+            esAdmin={session.rol === 'admin'}
             onClose={() => setSelectedId(null)}
             onChanged={refresh}
           />

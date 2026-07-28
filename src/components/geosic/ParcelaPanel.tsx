@@ -10,6 +10,8 @@ import EstadoBadge from './EstadoBadge'
 interface Props {
   parcela: ParcelaGeoRow
   puedeValidar: boolean
+  /** Borrar un polígono es admin-only: a diferencia de "rechazar" no deja rastro. */
+  esAdmin: boolean
   onClose: () => void
   onChanged: () => void
 }
@@ -17,11 +19,13 @@ interface Props {
 export default function ParcelaPanel({
   parcela,
   puedeValidar,
+  esAdmin,
   onClose,
   onChanged,
 }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
 
   const tienePoligono = parcela.poligono_id !== null
 
@@ -40,6 +44,32 @@ export default function ParcelaPanel({
         throw new Error(body.error ?? `Error ${res.status}`)
       }
       onChanged()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Borra la versión completa (p.ej. un levantamiento de prueba). Si había una
+  // versión anterior buena, el servidor la reactiva sola.
+  async function eliminarPoligono() {
+    if (!parcela.poligono_id) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/geosic/eliminar-poligono', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poligono_id: parcela.poligono_id }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Error ${res.status}`)
+      }
+      setConfirmandoBorrado(false)
+      onChanged()
+      onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
     } finally {
@@ -168,6 +198,47 @@ export default function ParcelaPanel({
           >
             Revertir validación
           </button>
+        </div>
+      )}
+
+      {/* Borrar por completo un levantamiento malo (p.ej. una prueba de
+          ubicación). A diferencia de "Rechazar", no deja la geometría mala
+          activa en el mapa — y si había una versión anterior buena, se
+          reactiva sola. Solo admin: es irreversible. */}
+      {esAdmin && tienePoligono && (
+        <div className="border-t border-slate-100 p-3">
+          {confirmandoBorrado ? (
+            <div className="rounded-md bg-red-50 p-2.5">
+              <p className="mb-2 text-xs text-red-700">
+                Se borra esta versión del polígono para siempre. Si hay una
+                versión anterior, se reactiva sola.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  disabled={busy}
+                  onClick={eliminarPoligono}
+                  className="flex-1 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  {busy ? '…' : 'Sí, eliminar'}
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => setConfirmandoBorrado(false)}
+                  className="flex-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={() => setConfirmandoBorrado(true)}
+              className="w-full rounded-md px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            >
+              Eliminar polígono
+            </button>
+          )}
         </div>
       )}
     </aside>
