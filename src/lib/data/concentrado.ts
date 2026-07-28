@@ -44,6 +44,43 @@ const clave = (s: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+export interface ProveedorTipo {
+  id: string
+  nombre: string
+  tipo_persona: 'moral' | 'fisica'
+  boletas: number
+}
+
+/**
+ * Proveedores del acopio con su tipo (sociedad/individual) y cuántas boletas
+ * tienen, para que Contabilidad los clasifique. El tipo decide cómo se agrupa el
+ * acopio por cooperativa.
+ */
+export async function getProveedoresParaClasificar(): Promise<ProveedorTipo[]> {
+  const supabase = await createClient()
+  const [prov, ent] = await Promise.all([
+    supabase.from('acopio_proveedor').select('id, nombre, tipo_persona').eq('activo', true).limit(5000),
+    supabase.from('entradas').select('proveedor_nombre').limit(5000),
+  ])
+  if (prov.error) throw new Error(prov.error.message)
+  if (ent.error) throw new Error(ent.error.message)
+
+  const cuenta = new Map<string, number>()
+  for (const e of ent.data ?? []) {
+    const k = clave(e.proveedor_nombre as string)
+    cuenta.set(k, (cuenta.get(k) ?? 0) + 1)
+  }
+
+  return (prov.data ?? [])
+    .map((p) => ({
+      id: p.id as string,
+      nombre: p.nombre as string,
+      tipo_persona: (p.tipo_persona as 'moral' | 'fisica') ?? 'fisica',
+      boletas: cuenta.get(clave(p.nombre as string)) ?? 0,
+    }))
+    .sort((a, b) => b.boletas - a.boletas || a.nombre.localeCompare(b.nombre, 'es'))
+}
+
 /** El detalle: una fila por boleta, como su hoja MATRIX. */
 export async function getConcentrado(f: FiltrosConcentrado): Promise<BoletaConcentrado[]> {
   const supabase = await createClient()

@@ -1,9 +1,11 @@
-// POST /api/acopio/proveedores — alta de un proveedor del padrón de ACOPIO
-// (independiente del padrón de certificación). Cualquier miembro puede darlo de
-// alta desde la captura de entrada.
+// POST  /api/acopio/proveedores      — alta de un proveedor del padrón de ACOPIO
+//                                       (cualquier miembro, desde la captura).
+// PATCH /api/acopio/proveedores?id=…  — cambia el tipo (sociedad/individual);
+//                                       sólo Contabilidad, porque decide cómo se
+//                                       agrupa el acopio por cooperativa.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getSession } from '@/lib/session'
+import { getSession, getSessionResult } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,4 +61,32 @@ export async function POST(request: Request) {
       municipio: data.municipio,
     },
   })
+}
+
+export async function PATCH(request: Request) {
+  const r = await getSessionResult()
+  if (r.kind !== 'ok') return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  if (r.session.rol !== 'admin' && r.session.rol !== 'contador') {
+    return NextResponse.json({ error: 'Sólo Contabilidad puede clasificar proveedores.' }, { status: 403 })
+  }
+
+  const id = new URL(request.url).searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'Falta el proveedor' }, { status: 400 })
+
+  const body = await request.json().catch(() => null)
+  const tipo = String(body?.tipo_persona ?? '')
+  if (tipo !== 'moral' && tipo !== 'fisica') {
+    return NextResponse.json({ error: 'Tipo inválido (moral o fisica)' }, { status: 400 })
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('acopio_proveedor')
+    .update({ tipo_persona: tipo })
+    .eq('id', id)
+    .select('id, nombre, tipo_persona')
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  return NextResponse.json({ ok: true, proveedor: data })
 }

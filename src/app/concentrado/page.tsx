@@ -4,12 +4,13 @@
 import { redirect } from 'next/navigation'
 import { getSessionResult } from '@/lib/session'
 import {
-  getConcentrado, armarQQAcopiados, armarCooperativas,
+  getConcentrado, armarQQAcopiados, armarCooperativas, getProveedoresParaClasificar,
   fmtMXN, fmtNum, LOTE_QQ,
 } from '@/lib/data/concentrado'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import QQAcopiadosTabs from '@/components/concentrado/QQAcopiadosTabs'
+import ProveedoresTipo from '@/components/concentrado/ProveedoresTipo'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,7 +41,10 @@ export default async function ConcentradoPage({
   const desde = sp.desde || ''
   const hasta = sp.hasta || ''
 
-  const boletas = await getConcentrado({ desde: desde || null, hasta: hasta || null })
+  const [boletas, proveedores] = await Promise.all([
+    getConcentrado({ desde: desde || null, hasta: hasta || null }),
+    getProveedoresParaClasificar(),
+  ])
   const qq = armarQQAcopiados(boletas)
   const coops = armarCooperativas(boletas)
 
@@ -165,6 +169,9 @@ export default async function ConcentradoPage({
               </table>
             </div>
           </section>
+
+          {/* Gestor de clasificación sociedad/individual */}
+          <ProveedoresTipo proveedores={proveedores} />
         </div>
       </div>
     </div>
