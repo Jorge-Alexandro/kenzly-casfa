@@ -1,7 +1,13 @@
 // Auth middleware: refreshes the Supabase session on every request and
 // redirects unauthenticated users to /login (except for static assets).
+//
+// También aplica la matriz de acceso por rol (lib/acceso.ts). Va aquí y no en
+// cada página porque es UN solo lugar, cubre los módulos que se agreguen
+// después, y —lo importante— no se puede saltar tecleando la URL: ocultar la
+// pestaña en el nav no impedía entrar a /ventas y ver los montos.
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
+import { puedeVerModulo, moduloDeRuta, moduloInicial, type RolAcceso } from '@/lib/acceso'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -49,6 +55,26 @@ export async function middleware(request: NextRequest) {
 
   if (user && isAuthRoute) {
     return NextResponse.redirect(new URL('/panel', request.url))
+  }
+
+  // --- Acceso por rol -------------------------------------------------------
+  // Sólo para navegaciones de página: las API traen su propio control (y varias
+  // dependen de RLS, que es la barrera real para el dinero).
+  if (user && !isApiRoute && !isPublicRoute && !isAuthRoute) {
+    const modulo = moduloDeRuta(pathname)
+    // La raíz y las rutas sin módulo no se tocan.
+    if (modulo) {
+      const { data: membresia } = await supabase
+        .from('membresias')
+        .select('rol')
+        .eq('usuario_id', user.id)
+        .maybeSingle()
+      const rol = membresia?.rol as RolAcceso | undefined
+      // Sin membresía no se bloquea: la página ya muestra <NoMembership />.
+      if (rol && !puedeVerModulo(rol, modulo)) {
+        return NextResponse.redirect(new URL(moduloInicial(rol), request.url))
+      }
+    }
   }
 
   return supabaseResponse

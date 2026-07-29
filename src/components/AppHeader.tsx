@@ -7,30 +7,30 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { RolMembresia } from '@/lib/types'
+import { puedeVerModulo, moduloDeRuta } from '@/lib/acceso'
 import OfflineStatus from './OfflineStatus'
 
-// Visibilidad de pestañas por rol:
-//  · soloAdmin  → módulos administrativos que NO ve el SIC (inspector/coordinador).
-//  · contador   → Contabilidad ve un set acotado (Acopio/Ventas/CRM/Contabilidad),
-//    NO el set del SIC (GeoSIC, certificación, fichas…). El admin ve todo.
-const TABS: { href: string; label: string; soloAdmin?: boolean; contador?: boolean }[] = [
-  { href: '/panel', label: 'Panel', contador: true },
+// Visibilidad de pestañas por rol. La decisión vive en lib/acceso.ts, que es la
+// MISMA matriz que aplica el middleware por URL: ocultar la pestaña no basta,
+// porque cualquiera podría teclear /ventas y ver los montos.
+const TABS: { href: string; label: string }[] = [
+  { href: '/panel', label: 'Panel' },
   { href: '/geosic', label: 'GeoSIC' },
   { href: '/satelite', label: 'Satélite' },
   { href: '/productores', label: 'Productores' },
   { href: '/certificacion', label: 'Certificación' },
   { href: '/lpa', label: 'LPA' },
   { href: '/certificados', label: 'Certificados' },
-  { href: '/acopio', label: 'Acopio', soloAdmin: true, contador: true },
-  { href: '/salidas', label: 'Salidas', soloAdmin: true, contador: true },
-  { href: '/contabilidad', label: 'Contabilidad', soloAdmin: true, contador: true },
-  { href: '/gastos', label: 'Gastos', soloAdmin: true, contador: true },
-  { href: '/concentrado', label: 'Concentrado', soloAdmin: true, contador: true },
-  { href: '/ventas', label: 'Ventas', soloAdmin: true, contador: true },
-  { href: '/contratos', label: 'Contratos', soloAdmin: true },
-  { href: '/crm', label: 'CRM', soloAdmin: true, contador: true },
+  { href: '/acopio', label: 'Acopio' },
+  { href: '/salidas', label: 'Salidas' },
+  { href: '/contabilidad', label: 'Contabilidad' },
+  { href: '/gastos', label: 'Gastos' },
+  { href: '/concentrado', label: 'Concentrado' },
+  { href: '/ventas', label: 'Ventas' },
+  { href: '/contratos', label: 'Contratos' },
+  { href: '/crm', label: 'CRM' },
   { href: '/estimacion', label: 'Estimación' },
-  { href: '/agroecologia', label: 'Agroecología', soloAdmin: true },
+  { href: '/agroecologia', label: 'Agroecología' },
   { href: '/fichas', label: 'Fichas' },
   { href: '/bitacora', label: 'Bitácora' },
   { href: '/historial', label: 'Historial' },
@@ -50,12 +50,8 @@ export default function AppHeader({
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // El admin ve todo; el contador su set contable; el SIC su set operativo.
-  const tabs = TABS.filter((t) => {
-    if (rol === 'admin') return true
-    if (rol === 'contador') return t.contador === true
-    return !t.soloAdmin
-  })
+  // Misma matriz que aplica el middleware por URL (lib/acceso.ts).
+  const tabs = TABS.filter((t) => puedeVerModulo(rol, moduloDeRuta(t.href)))
 
   async function signOut() {
     const supabase = createClient()

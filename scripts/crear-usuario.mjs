@@ -23,7 +23,12 @@ const admin = createClient(get('NEXT_PUBLIC_SUPABASE_URL'), get('SUPABASE_SERVIC
   auth: { persistSession: false },
 })
 
-const ROLES = ['admin', 'coordinador', 'inspector', 'solo_lectura']
+// Debe coincidir con el enum rol_membresia y con la matriz de src/lib/acceso.ts.
+//   contador  → set contable (es el único, con admin, que ve precios)
+//   operativo → bodega: Acopio + Salidas, SIN dinero
+const ROLES = [
+  'admin', 'coordinador', 'inspector', 'solo_lectura', 'contador', 'operativo',
+]
 
 const [email, nombre, rol, passwordArg] = process.argv.slice(2)
 
