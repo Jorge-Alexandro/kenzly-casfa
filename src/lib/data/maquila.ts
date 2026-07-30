@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Aviso } from '@/lib/maquila/validacion.mjs'
 import type { BoletaDisponible } from '@/lib/maquila/captura'
+import { KG_POR_QUINTAL_ORO } from '@/lib/maquila/importar.mjs'
 
 export interface MaquilaRow {
   id: string
@@ -112,19 +113,16 @@ export async function getSalidas(): Promise<SalidaRow[]> {
 // ----------------------------------------------------------------------------
 
 /**
- * Boletas de acopio con SALDO disponible para un corte de maquila (`completada`
- * y `pdf_generado` son los únicos estados con pesada y calidad cerradas; el
- * resto —borrador, en_pesaje…— todavía se está capturando en bodega).
+ * El saldo por boleta: total de la entrada MENOS lo que ya se usó en
+ * cualquier corte de maquila (una entrega comercial grande puede repartirse
+ * entre dos cortes en días distintos — la boleta 302 se repartió 127+100
+ * sacos entre M-17 y M-18, no es un simple "ya usada / no usada").
  *
- * OJO: una boleta puede estar YA PARCIALMENTE usada en otro corte — pasa con
- * las entregas comerciales grandes, que se procesan en varios días (la boleta
- * 302 se repartió 127+100 sacos entre M-17 y M-18). El disponible es el total
- * de la boleta MENOS lo que ya se usó en cualquier corte anterior, no un
- * simple "ya usada / no usada". Se excluyen las que ya están en 0.
+ * Compartida por getBoletasDisponibles (candidatas para un corte nuevo, una
+ * fila por boleta) y getInventarioMateriaPrima (el mismo saldo, sumado por
+ * especie/tipo — es el "café que aún no ha pasado por el beneficio").
  */
-export async function getBoletasDisponibles(): Promise<BoletaDisponible[]> {
-  const supabase = await createClient()
-
+async function boletasConSaldo(supabase: Awaited<ReturnType<typeof createClient>>) {
   const [{ data: usos, error: uErr }, { data: entradas, error: eErr }] = await Promise.all([
     supabase.from('maquila_boleta').select('entrada_id, sacos, kg_netos').not('entrada_id', 'is', null).limit(20000),
     supabase
@@ -146,25 +144,35 @@ export async function getBoletasDisponibles(): Promise<BoletaDisponible[]> {
     usadoPorEntrada.set(id, acc)
   }
 
-  return (entradas ?? [])
-    .map((e) => {
-      const usado = usadoPorEntrada.get(e.id as string) ?? { sacos: 0, kg: 0 }
-      const sacosTot = Number(e.total_sacos)
-      const kgTot = Number(e.kg_netos)
-      return {
-        id: e.id as string,
-        folio: e.folio as number,
-        fecha_acopio: e.fecha_acopio as string,
-        especie: e.especie as string,
-        tipo: e.tipo as string,
-        proveedor_nombre: e.proveedor_nombre as string,
-        sacos_totales: sacosTot,
-        kg_totales: kgTot,
-        sacos_disponibles: Math.max(0, Math.round((sacosTot - usado.sacos) * 100) / 100),
-        kg_disponibles: Math.max(0, Math.round((kgTot - usado.kg) * 100) / 100),
-      }
-    })
-    .filter((b) => b.kg_disponibles > 0.5 && b.sacos_disponibles > 0)
+  return (entradas ?? []).map((e) => {
+    const usado = usadoPorEntrada.get(e.id as string) ?? { sacos: 0, kg: 0 }
+    const sacosTot = Number(e.total_sacos)
+    const kgTot = Number(e.kg_netos)
+    return {
+      id: e.id as string,
+      folio: e.folio as number,
+      fecha_acopio: e.fecha_acopio as string,
+      especie: e.especie as string,
+      tipo: e.tipo as string,
+      proveedor_nombre: e.proveedor_nombre as string,
+      sacos_totales: sacosTot,
+      kg_totales: kgTot,
+      sacos_disponibles: Math.max(0, Math.round((sacosTot - usado.sacos) * 100) / 100),
+      kg_disponibles: Math.max(0, Math.round((kgTot - usado.kg) * 100) / 100),
+    }
+  })
+}
+
+/**
+ * Boletas de acopio con SALDO disponible para un corte de maquila (`completada`
+ * y `pdf_generado` son los únicos estados con pesada y calidad cerradas; el
+ * resto —borrador, en_pesaje…— todavía se está capturando en bodega). Se
+ * excluyen las que ya están en 0.
+ */
+export async function getBoletasDisponibles(): Promise<BoletaDisponible[]> {
+  const supabase = await createClient()
+  const filas = await boletasConSaldo(supabase)
+  return filas.filter((b) => b.kg_disponibles > 0.5 && b.sacos_disponibles > 0)
 }
 
 export interface CatalogoProducto {
@@ -336,3 +344,157 @@ export async function getInventarioUltimo() {
 
   return { fecha: corte.fecha as string, lineas: lineas ?? [] }
 }
+
+// ----------------------------------------------------------------------------
+// Inventario EN VIVO (Fase 2): ya no es una foto que alguien sube en Excel — se
+// calcula solo, siempre al día, de las mismas tablas que ya alimenta el resto
+// del módulo. El snapshot de Excel (arriba) se conserva como referencia
+// histórica; esto es lo que hay en bodega AHORA MISMO.
+//
+//   Materia prima     = lo que ya se acopió y AÚN NO entra a un corte
+//                        (mismo saldo que usa "Nuevo corte", sumado por
+//                        especie/tipo).
+//   Producto terminado = lo que salió del beneficio (maquila_resultado) MENOS
+//                        lo que ya se vendió/embarcó (maquila_salida). Sólo se
+//                        puede cuadrar a nivel de GRUPO (primeras/segundas/
+//                        terceras): las salidas nacionales no distinguen si el
+//                        segunda que se vendió era Oliver, Clasificadora o PL,
+//                        sólo que era "SEGUNDA/ARABE". El detalle por producto
+//                        se muestra aparte, informativo, sin su propio stock.
+// ----------------------------------------------------------------------------
+
+export interface MateriaPrimaLinea {
+  especie: string
+  tipo: string
+  boletas_pendientes: number
+  sacos_disponibles: number
+  kg_disponibles: number
+}
+
+/** Café ya acopiado que todavía no entra a ningún corte, por especie/tipo. */
+export async function getInventarioMateriaPrima(): Promise<MateriaPrimaLinea[]> {
+  const supabase = await createClient()
+  const filas = await boletasConSaldo(supabase)
+
+  const porTipo = new Map<string, MateriaPrimaLinea>()
+  for (const b of filas) {
+    if (b.kg_disponibles <= 0.5) continue
+    const k = `${b.especie}|${b.tipo}`
+    const l = porTipo.get(k) ?? { especie: b.especie, tipo: b.tipo, boletas_pendientes: 0, sacos_disponibles: 0, kg_disponibles: 0 }
+    l.boletas_pendientes++
+    l.sacos_disponibles += b.sacos_disponibles
+    l.kg_disponibles = Math.round((l.kg_disponibles + b.kg_disponibles) * 100) / 100
+    porTipo.set(k, l)
+  }
+  return Array.from(porTipo.values()).sort((a, b) => b.kg_disponibles - a.kg_disponibles)
+}
+
+export interface ProductoTerminadoDetalle {
+  clave: string
+  nombre: string
+  kg_producido: number
+}
+
+export interface GrupoTerminado {
+  especie: string
+  grupo: string
+  kg_producido: number
+  kg_salido: number
+  /**
+   * producido − salido. PUEDE SALIR NEGATIVO: no es "inventario en negativo",
+   * es la señal de que hay ventas/embarques de un grupo del que este sistema
+   * no tiene registrado suficiente producción — casi siempre porque faltan
+   * cortes de maquila por cargar (hoy sólo están digitalizados M-13 a M-19;
+   * la hoja SALIDA del Master cubre lotes 1-59, o sea toda la temporada desde
+   * enero). NO se recorta a 0: esconder el negativo sería fingir que no
+   * falta nada.
+   */
+  stock_kg: number
+  stock_qq: number
+  productos: ProductoTerminadoDetalle[]
+}
+
+/** Grupo (primeras/segundas/terceras) al que corresponde una fila de salidas,
+ * a partir de cómo el importador de la hoja SALIDA guarda `especie`:
+ * 'ARABE'/'ROBUSTA' (sin prefijo) = primeras; 'SEGUNDA/ARABE' = segundas;
+ * 'TERCERA/ROBUSTA' = terceras. */
+function grupoDeSalida(especie: string | null): { especieBase: string; grupo: string } | null {
+  const t = (especie ?? '').toUpperCase().trim()
+  if (t === 'ARABE' || t === 'ROBUSTA') return { especieBase: t, grupo: 'primeras' }
+  const m = t.match(/^(SEGUNDA|TERCERA)\/(ARABE|ROBUSTA)$/)
+  if (!m) return null
+  return { especieBase: m[2], grupo: m[1] === 'SEGUNDA' ? 'segundas' : 'terceras' }
+}
+
+/** Lo que salió del beneficio menos lo ya vendido/embarcado, por especie y grupo. */
+export async function getInventarioProductoTerminado(): Promise<GrupoTerminado[]> {
+  const supabase = await createClient()
+
+  const [{ data: resultados, error: rErr }, { data: salidas, error: sErr }] = await Promise.all([
+    supabase
+      .from('maquila_resultado')
+      .select('total_kg, maquilas ( especie ), maquila_producto ( clave, nombre, grupo, orden )')
+      .limit(20000),
+    supabase.from('maquila_salida').select('especie, quintales').limit(20000),
+  ])
+  if (rErr) throw new Error(rErr.message)
+  if (sErr) throw new Error(sErr.message)
+
+  interface ResultadoRow {
+    total_kg: number
+    maquilas: { especie: string } | { especie: string }[] | null
+    maquila_producto: { clave: string; nombre: string; grupo: string; orden: number } | { clave: string; nombre: string; grupo: string; orden: number }[] | null
+  }
+
+  const grupos = new Map<string, GrupoTerminado>()
+  const productos = new Map<string, Map<string, ProductoTerminadoDetalle>>() // "especie|grupo" -> clave -> detalle
+  const grupo = (key: string, especie: string, nombreGrupo: string) =>
+    grupos.get(key) ?? (() => {
+      const g: GrupoTerminado = { especie, grupo: nombreGrupo, kg_producido: 0, kg_salido: 0, stock_kg: 0, stock_qq: 0, productos: [] }
+      grupos.set(key, g)
+      return g
+    })()
+
+  for (const r of (resultados ?? []) as unknown as ResultadoRow[]) {
+    const mq = Array.isArray(r.maquilas) ? r.maquilas[0] : r.maquilas
+    const pr = Array.isArray(r.maquila_producto) ? r.maquila_producto[0] : r.maquila_producto
+    if (!mq || !pr || pr.grupo === 'merma') continue // la merma no es inventario vendible
+    const especie = mq.especie
+    const key = `${especie}|${pr.grupo}`
+    const g = grupo(key, especie, pr.grupo)
+    g.kg_producido = Math.round((g.kg_producido + Number(r.total_kg)) * 100) / 100
+
+    const porProducto = productos.get(key) ?? new Map<string, ProductoTerminadoDetalle>()
+    const d = porProducto.get(pr.clave) ?? { clave: pr.clave, nombre: pr.nombre, kg_producido: 0 }
+    d.kg_producido = Math.round((d.kg_producido + Number(r.total_kg)) * 100) / 100
+    porProducto.set(pr.clave, d)
+    productos.set(key, porProducto)
+  }
+
+  // Toda salida clasificable SUMA a kg_salido, exista o no un grupo con
+  // producción ya registrada — si no existe, se crea en 0: es justo el caso
+  // que delata con más claridad un corte que falta por cargar (kg_salido > 0
+  // con kg_producido = 0 no se puede confundir con "no hay nada que ver aquí").
+  for (const s of salidas ?? []) {
+    const info = grupoDeSalida(s.especie as string | null)
+    if (!info) continue // fila que no se pudo clasificar (especie libre/atípica): no se descuenta a ciegas
+    const key = `${info.especieBase}|${info.grupo}`
+    const g = grupo(key, info.especieBase, info.grupo)
+    const kg = Number(s.quintales ?? 0) * KG_POR_QUINTAL_ORO
+    g.kg_salido = Math.round((g.kg_salido + kg) * 100) / 100
+  }
+
+  return Array.from(grupos.entries())
+    .map(([key, g]) => {
+      // SIN recortar a 0: un negativo es la señal de que faltan cortes por
+      // cargar, no "inventario en negativo". Esconderlo con Math.max(0, …)
+      // sería mostrar limpio lo que en realidad es un hueco de datos.
+      g.stock_kg = Math.round((g.kg_producido - g.kg_salido) * 100) / 100
+      g.stock_qq = Math.round((g.stock_kg / KG_POR_QUINTAL_ORO) * 10000) / 10000
+      g.productos = Array.from(productos.get(key)?.values() ?? []).sort((a, b) => b.kg_producido - a.kg_producido)
+      return g
+    })
+    .sort((a, b) => a.especie.localeCompare(b.especie) || GRUPO_ORDEN[a.grupo] - GRUPO_ORDEN[b.grupo])
+}
+
+const GRUPO_ORDEN: Record<string, number> = { primeras: 0, segundas: 1, terceras: 2, merma: 3 }

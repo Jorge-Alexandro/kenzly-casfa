@@ -1,12 +1,16 @@
 // Módulo Maquila — los cortes de beneficiado y el MASTER derivado.
 // La tabla de abajo ES la hoja 'MASTER MAQUILAS' del Excel, pero calculada:
 // ya no se teclea corte por corte.
+import { Fragment } from 'react'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSessionResult } from '@/lib/session'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
-import { getMaquilas, getMaster, getInventarioUltimo, getSalidas } from '@/lib/data/maquila'
+import {
+  getMaquilas, getMaster, getInventarioUltimo, getSalidas,
+  getInventarioMateriaPrima, getInventarioProductoTerminado,
+} from '@/lib/data/maquila'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,16 +24,22 @@ const TIPO_LABEL: Record<string, string> = {
   repaso_clasificadora: 'Repaso clasificadora',
 }
 
+const GRUPO_LABEL: Record<string, string> = {
+  primeras: 'Primeras', segundas: 'Segundas', terceras: 'Terceras', merma: 'Merma',
+}
+
 export default async function MaquilaPage() {
   const result = await getSessionResult()
   if (result.kind === 'no-auth') redirect('/login')
   if (result.kind === 'no-membership') return <NoMembership />
 
-  const [maquilas, master, inventario, salidas] = await Promise.all([
+  const [maquilas, master, inventario, salidas, materiaPrima, productoTerminado] = await Promise.all([
     getMaquilas(),
     getMaster(),
     getInventarioUltimo(),
     getSalidas(),
+    getInventarioMateriaPrima(),
+    getInventarioProductoTerminado(),
   ])
 
   const conAvisos = maquilas.filter((m) => m.avisos?.length > 0)
@@ -82,6 +92,132 @@ export default async function MaquilaPage() {
               )}
             </p>
           </div>
+
+          {/* Inventario en vivo — se calcula solo, siempre al día. No es una
+              foto que alguien sube; ver más abajo el último Excel cargado. */}
+          <section className="overflow-hidden rounded-xl border border-emerald-200 bg-white">
+            <div className="border-b border-emerald-100 bg-emerald-50/60 px-4 py-3">
+              <h2 className="text-sm font-semibold text-emerald-900">Inventario en vivo — materia prima</h2>
+              <p className="text-xs text-emerald-700">
+                Café ya acopiado que todavía no entra a ningún corte de maquila. Se calcula solo de
+                las boletas de acopio y sus saldos.
+              </p>
+            </div>
+            {materiaPrima.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-slate-400">
+                No hay café pendiente de procesar: todo lo acopiado ya entró a un corte.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-left text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Especie</th>
+                      <th className="px-3 py-2 font-medium">Tipo</th>
+                      <th className="px-3 py-2 text-right font-medium">Boletas</th>
+                      <th className="px-3 py-2 text-right font-medium">Sacos disp.</th>
+                      <th className="px-3 py-2 text-right font-medium">Kg disponibles</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {materiaPrima.map((l) => (
+                      <tr key={`${l.especie}-${l.tipo}`} className="border-t border-slate-50">
+                        <td className="px-3 py-2 text-slate-600">{l.especie}</td>
+                        <td className="px-3 py-2 text-slate-700">{l.tipo}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-500">{l.boletas_pendientes}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-600">{num(l.sacos_disponibles, 0)}</td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums text-slate-800">
+                          {num(l.kg_disponibles)} kg
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-slate-200 bg-slate-50 font-semibold text-slate-700">
+                      <td className="px-3 py-2" colSpan={2}>Total</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {materiaPrima.reduce((s, l) => s + l.boletas_pendientes, 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {num(materiaPrima.reduce((s, l) => s + l.sacos_disponibles, 0), 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {num(materiaPrima.reduce((s, l) => s + l.kg_disponibles, 0))} kg
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-emerald-200 bg-white">
+            <div className="border-b border-emerald-100 bg-emerald-50/60 px-4 py-3">
+              <h2 className="text-sm font-semibold text-emerald-900">Inventario en vivo — producto terminado</h2>
+              <p className="text-xs text-emerald-700">
+                Lo que salió del beneficio menos lo ya vendido/embarcado. El stock sólo se puede
+                cuadrar por grupo (Primeras/Segundas/Terceras): las salidas nacionales no distinguen
+                de qué producto específico venía cada venta.
+              </p>
+            </div>
+            {productoTerminado.some((g) => g.stock_kg < 0) && (
+              <p className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+                <strong>Los negativos de abajo no son "inventario en negativo":</strong> significan que
+                se vendió/embarcó más de lo que este sistema tiene registrado como producido — casi
+                siempre porque falta cargar cortes de maquila anteriores (hoy sólo están los cortes
+                digitalizados; la hoja de embarques del Master cubre desde el inicio de temporada).
+              </p>
+            )}
+            {productoTerminado.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-slate-400">
+                Todavía no hay cortes de maquila con resultado registrado.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-left text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Especie</th>
+                      <th className="px-3 py-2 font-medium">Grupo</th>
+                      <th className="px-3 py-2 text-right font-medium">Producido</th>
+                      <th className="px-3 py-2 text-right font-medium">Vendido/embarcado</th>
+                      <th className="px-3 py-2 text-right font-medium">Stock (kg)</th>
+                      <th className="px-3 py-2 text-right font-medium">Stock (QQ)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productoTerminado.map((g) => {
+                      const falta = g.stock_kg < 0
+                      return (
+                        <Fragment key={`${g.especie}-${g.grupo}`}>
+                          <tr className="border-t border-slate-100">
+                            <td className="px-3 py-2 text-slate-600">{g.especie}</td>
+                            <td className="px-3 py-2 font-medium text-slate-700">{GRUPO_LABEL[g.grupo] ?? g.grupo}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-600">{num(g.kg_producido)} kg</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-600">{num(g.kg_salido)} kg</td>
+                            <td className={`px-3 py-2 text-right font-semibold tabular-nums ${falta ? 'text-amber-700' : 'text-emerald-700'}`}>
+                              {num(g.stock_kg)} kg{falta && ' ⚠'}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-600">{num(g.stock_qq, 2)}</td>
+                          </tr>
+                          <tr className="border-t border-slate-50 bg-slate-50/40">
+                            <td />
+                            <td colSpan={5} className="px-3 py-1.5 text-[11px] text-slate-400">
+                              {g.productos.length > 0
+                                ? g.productos.map((p) => `${p.nombre} ${num(p.kg_producido, 0)} kg`).join(' · ')
+                                : 'Sin cortes de maquila con este producto registrado.'}
+                            </td>
+                          </tr>
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
+              Producido = lo registrado en los cortes de maquila. Vendido/embarcado = la hoja SALIDA
+              del Master (exportación + ventas nacionales).
+            </p>
+          </section>
 
           {maquilas.length === 0 && (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
@@ -267,8 +403,12 @@ export default async function MaquilaPage() {
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               <div className="border-b border-slate-100 px-4 py-3">
                 <h2 className="text-sm font-semibold text-slate-800">
-                  Inventario de bodega al {inventario.fecha}
+                  Último Excel de inventario cargado — {inventario.fecha}
                 </h2>
+                <p className="text-xs text-slate-400">
+                  Referencia histórica: la foto que subieron ese día. El inventario en vivo de arriba
+                  es el que está al día hoy.
+                </p>
               </div>
               <table className="w-full text-xs">
                 <tbody>
