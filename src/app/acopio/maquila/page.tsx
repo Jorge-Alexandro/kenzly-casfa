@@ -34,6 +34,7 @@ export default async function MaquilaPage() {
 
   const conAvisos = maquilas.filter((m) => m.avisos?.length > 0)
   const totalQq = master.reduce((s, m) => s + Number(m.qq_salida ?? 0), 0)
+  const idPorClave = new Map(maquilas.map((m) => [m.clave, m.id]))
 
   const exportaciones = salidas.filter((s) => s.tipo_salida === 'exportacion')
   const nacionales = salidas.filter((s) => s.tipo_salida === 'nacional')
@@ -57,9 +58,15 @@ export default async function MaquilaPage() {
         </a>
         <Link
           href="/acopio/maquila/importar"
-          className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-700"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
         >
           Importar formatos
+        </Link>
+        <Link
+          href="/acopio/maquila/nuevo"
+          className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-700"
+        >
+          + Nuevo corte
         </Link>
       </AppHeader>
 
@@ -112,6 +119,7 @@ export default async function MaquilaPage() {
                       <th className="px-3 py-2 text-right font-medium">%</th>
                       <th className="px-3 py-2 text-right font-medium">QQ oro</th>
                       <th className="px-3 py-2 text-right font-medium">Rend.</th>
+                      <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
@@ -148,6 +156,16 @@ export default async function MaquilaPage() {
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-600">
                           {pct(m.rendimiento)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {idPorClave.get(m.clave) && (
+                            <a
+                              href={`/api/maquila/${idPorClave.get(m.clave)}/pdf`}
+                              className="text-xs font-medium text-orange-700 hover:underline"
+                            >
+                              PDF
+                            </a>
+                          )}
                         </td>
                       </tr>
                     ))}
