@@ -379,11 +379,12 @@ function Detalle({
       const detalle = data.fuente === 'xml'
         ? (data.emisor_nombre ? ` — ${data.emisor_nombre}` : '')
         : ` — ${data.camposDetectados}/${data.camposTotal} campos, revisa antes de guardar`
+      const avisoFolio = data.folio_generado
+        ? ` · este CFDI no traía folio, se puso "${data.folio}" (del UUID) — cámbialo si quieres otro`
+        : ''
       setImportado({
         ok: true,
-        mensaje: data.fuente === 'xml'
-          ? `CFDI leído${detalle}`
-          : `PDF leído (estimado)${detalle}`,
+        mensaje: (data.fuente === 'xml' ? `CFDI leído${detalle}` : `PDF leído (estimado)${detalle}`) + avisoFolio,
       })
     } catch (e) {
       setImportado({ ok: false, mensaje: e instanceof Error ? e.message : 'Error al leer el archivo' })

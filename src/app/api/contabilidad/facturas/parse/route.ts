@@ -18,6 +18,20 @@ export const dynamic = 'force-dynamic'
 
 const guard = (rol: string) => rol === 'admin' || rol === 'contador'
 
+/**
+ * El Folio es un campo OPCIONAL del estándar CFDI — varios emisores (sobre
+ * todo personas físicas con facturación simple) no lo traen. `entrada_factura`
+ * sí exige un folio (columna not null), así que cuando el CFDI no trae uno se
+ * arma con los primeros 8 caracteres del UUID —el único identificador que un
+ * CFDI timbrado SIEMPRE tiene—, y se avisa que es generado para que Vicky lo
+ * cambie si quiere poner otra cosa.
+ */
+function folioConRespaldo(folio: string | null, uuidFiscal: string | null) {
+  if (folio) return { folio, generado: false }
+  if (uuidFiscal) return { folio: uuidFiscal.slice(0, 8).toUpperCase(), generado: true }
+  return { folio: null, generado: false }
+}
+
 export async function POST(request: Request) {
   const r = await getSessionResult()
   if (r.kind !== 'ok') return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
@@ -46,11 +60,13 @@ export async function POST(request: Request) {
   try {
     if (esXml) {
       const f = parsearCfdiCompra(bytes.toString('utf8'))
+      const { folio, generado } = folioConRespaldo(f.folio, f.uuidFiscal)
       return NextResponse.json({
         ok: true,
         fuente: 'xml',
         confianza: 'alta',
-        folio: f.folio,
+        folio,
+        folio_generado: generado,
         fecha: f.fecha,
         monto: f.total,
         uuid_fiscal: f.uuidFiscal,
@@ -68,11 +84,13 @@ export async function POST(request: Request) {
         { status: 422 },
       )
     }
+    const { folio, generado } = folioConRespaldo(campos.folio, campos.uuidFiscal)
     return NextResponse.json({
       ok: true,
       fuente: 'pdf',
       confianza: 'estimado',
-      folio: campos.folio,
+      folio,
+      folio_generado: generado,
       fecha: campos.fecha,
       monto: campos.monto,
       uuid_fiscal: campos.uuidFiscal,
