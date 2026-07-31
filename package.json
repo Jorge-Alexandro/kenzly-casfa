@@ -24,7 +24,8 @@
     "qrcode-generator": "^2.0.4",
     "react": "^18",
     "react-dom": "^18",
-    "serwist": "^9.5.11"
+    "serwist": "^9.5.11",
+    "unpdf": "^1.8.0"
   },
   "devDependencies": {
     "@types/node": "^20",

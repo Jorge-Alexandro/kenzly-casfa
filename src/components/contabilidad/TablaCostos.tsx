@@ -4,7 +4,7 @@
 // (el servidor lo recalcula al guardar). El PAGADO ya no se teclea: es la suma
 // de los abonos, que se capturan uno por uno en el detalle — así queda la
 // evidencia de cómo se fue pagando. Igual las facturas.
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import {
   baseKg, coopKg, calcularImporte, fmtMXN, fmtNum,
   METODOS_PAGO, type BoletaCosto, type Pago, type Factura,
@@ -246,6 +246,9 @@ function Detalle({
 }) {
   const [pago, setPago] = useState({ fecha: hoy(), monto: '', metodo: 'Transferencia', referencia: '' })
   const [fact, setFact] = useState({ folio: '', fecha: hoy(), monto: '', uuid_fiscal: '' })
+  const [importado, setImportado] = useState<{ mensaje: string; ok: boolean } | null>(null)
+  const [importando, setImportando] = useState(false)
+  const archivoRef = useRef<HTMLInputElement>(null)
   const [ocupado, setOcupado] = useState(false)
   const [pagable, setPagable] = useState(boleta.kg_pagable == null ? '' : String(boleta.kg_pagable))
   const [precioCoop, setPrecioCoop] = useState(boleta.precio_kg_coop == null ? '' : String(boleta.precio_kg_coop))
@@ -340,6 +343,54 @@ function Detalle({
       pagos: quedan,
       importe_pagado: Math.round(quedan.reduce((s, x) => s + x.monto, 0) * 100) / 100,
     })
+  }
+
+  /** Lee un XML (CFDI) o PDF y PRE-LLENA los campos de abajo — Vicky los revisa
+   * y guarda con el botón de siempre; nada se manda solo. */
+  async function importarArchivo(archivo: File) {
+    setImportado(null)
+    onError(null)
+    setImportando(true)
+    try {
+      const buf = await archivo.arrayBuffer()
+      let binario = ''
+      const bytes = new Uint8Array(buf)
+      const TROZO = 0x8000
+      for (let i = 0; i < bytes.length; i += TROZO) {
+        binario += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + TROZO)))
+      }
+      const contenido = btoa(binario)
+
+      const res = await fetch('/api/contabilidad/facturas/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombreArchivo: archivo.name, contenido }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'No se pudo leer el archivo')
+
+      setFact((f) => ({
+        folio: data.folio ?? f.folio,
+        fecha: data.fecha ?? f.fecha,
+        monto: data.monto != null ? String(data.monto) : f.monto,
+        uuid_fiscal: data.uuid_fiscal ?? f.uuid_fiscal,
+      }))
+
+      const detalle = data.fuente === 'xml'
+        ? (data.emisor_nombre ? ` — ${data.emisor_nombre}` : '')
+        : ` — ${data.camposDetectados}/${data.camposTotal} campos, revisa antes de guardar`
+      setImportado({
+        ok: true,
+        mensaje: data.fuente === 'xml'
+          ? `CFDI leído${detalle}`
+          : `PDF leído (estimado)${detalle}`,
+      })
+    } catch (e) {
+      setImportado({ ok: false, mensaje: e instanceof Error ? e.message : 'Error al leer el archivo' })
+    } finally {
+      setImportando(false)
+      if (archivoRef.current) archivoRef.current.value = ''
+    }
   }
 
   async function agregarFactura() {
@@ -552,6 +603,35 @@ function Detalle({
           </ul>
         ) : (
           <p className="mb-2 text-xs text-slate-400">Sin facturas registradas.</p>
+        )}
+
+        {/* Importar CFDI/PDF: sólo PRE-LLENA los campos manuales de abajo —
+            la captura a mano sigue siendo el camino, esto sólo ahorra teclear. */}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <input
+            ref={archivoRef}
+            type="file"
+            accept=".xml,text/xml,.pdf,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) importarArchivo(f)
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => archivoRef.current?.click()}
+            disabled={importando}
+            className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {importando ? 'Leyendo…' : '📄 Importar CFDI o PDF'}
+          </button>
+          <span className="text-[11px] text-slate-400">rellena folio/fecha/monto/UUID — revisa antes de guardar</span>
+        </div>
+        {importado && (
+          <p className={`mb-2 rounded-md px-2.5 py-1.5 text-xs ${importado.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+            {importado.mensaje}
+          </p>
         )}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
