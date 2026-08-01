@@ -44,7 +44,7 @@ export default function HistorialEditor({
   const [error, setError] = useState<string | null>(null)
   const [guardadaOffline, setGuardadaOffline] = useState(false)
 
-  function setCelda(idx: number, campoId: string, valor: string | number | null) {
+  function setCelda(idx: number, campoId: string, valor: string | number | null | string[]) {
     setAnios((arr) =>
       arr.map((a, i) =>
         i === idx ? { ...a, datos: { ...a.datos, [campoId]: valor } } : a,
@@ -212,10 +212,32 @@ function Celda({
   onChange,
 }: {
   campo: HistorialCampo
-  value: string | number | null
-  onChange: (v: string | number | null) => void
+  value: string | number | null | string[]
+  onChange: (v: string | number | null | string[]) => void
 }) {
   const cls = 'w-full min-w-[120px] rounded border border-transparent px-1.5 py-1 text-sm outline-none focus:border-orange-400'
+  if (campo.tipo === 'enum' && campo.multiple) {
+    // Casillas independientes (p.ej. "Pepena granos brocados" + "Aplicó
+    // insumos"): en el formato original se puede marcar una, la otra o ambas.
+    const marcadas = Array.isArray(value) ? value : []
+    return (
+      <div className="min-w-[160px] space-y-1">
+        {(campo.opciones ?? []).map((o) => (
+          <label key={o} className="flex items-center gap-1.5 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={marcadas.includes(o)}
+              onChange={(e) =>
+                onChange(e.target.checked ? [...marcadas, o] : marcadas.filter((x) => x !== o))
+              }
+              className="h-3.5 w-3.5 accent-orange-500"
+            />
+            {o}
+          </label>
+        ))}
+      </div>
+    )
+  }
   if (campo.tipo === 'enum') {
     return (
       <select value={(value as string) ?? ''} onChange={(e) => onChange(e.target.value || null)} className={cls}>

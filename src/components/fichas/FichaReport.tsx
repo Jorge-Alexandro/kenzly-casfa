@@ -8,7 +8,7 @@ import Link from 'next/link'
 import type { FichaDetalle, FormCampo, FormSeccion, RolMembresia } from '@/lib/types'
 import { TIPO_FICHA_LABEL, ESTADO_FICHA_LABEL, NIVEL_CERT_LABEL } from '@/lib/types'
 import { MESES, normalizarDatos, type BitacoraActividad } from '@/lib/bitacora'
-import { HISTORIAL_CAMPOS } from '@/lib/historial'
+import { HISTORIAL_CAMPOS, mostrarValorHistorial } from '@/lib/historial'
 import { codigoCorto, esSeccionPorParcela } from '@/lib/format'
 import { leerPuntos, areaHa } from '@/lib/geo/puntos'
 import FichaEstadoControl from './FichaEstadoControl'
@@ -291,8 +291,7 @@ function HistorialAnexo({
   const cols = [...anios].sort((a, b) => a.anio - b.anio)
   const val = (datos: unknown, id: string) => {
     const d = (datos ?? {}) as Record<string, unknown>
-    const v = d[id]
-    return v === null || v === undefined || v === '' ? '—' : String(v)
+    return mostrarValorHistorial(d[id])
   }
   return (
     <div className="report-section mt-6 border-t-2 border-slate-300 pt-3">

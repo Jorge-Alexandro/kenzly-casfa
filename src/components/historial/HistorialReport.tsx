@@ -3,7 +3,7 @@
 // Reporte imprimible del historial: filas = campos, columnas = años (como el
 // formato real), bajo el encabezado de CASFA.
 import Link from 'next/link'
-import { HISTORIAL_CAMPOS, HISTORIAL_NOTA, type HistorialAnio } from '@/lib/historial'
+import { HISTORIAL_CAMPOS, HISTORIAL_NOTA, mostrarValorHistorial, type HistorialAnio } from '@/lib/historial'
 
 interface Props {
   parcelaLabel: string
@@ -66,14 +66,11 @@ export default function HistorialReport({
             {HISTORIAL_CAMPOS.map((campo) => (
               <tr key={campo.id}>
                 <td className="border border-slate-300 p-1.5 font-medium">{campo.label}</td>
-                {cols.map((a) => {
-                  const v = a.datos[campo.id]
-                  return (
-                    <td key={a.anio} className="border border-slate-300 p-1.5 text-center">
-                      {v !== null && v !== undefined && v !== '' ? String(v) : '—'}
-                    </td>
-                  )
-                })}
+                {cols.map((a) => (
+                  <td key={a.anio} className="border border-slate-300 p-1.5 text-center">
+                    {mostrarValorHistorial(a.datos[campo.id])}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
