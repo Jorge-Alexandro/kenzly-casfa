@@ -5,6 +5,12 @@
 import Link from 'next/link'
 import { MESES, type BitacoraDatos, type BitacoraActividad } from '@/lib/bitacora'
 
+/** ¿Esta bitácora tiene datos del formulario viejo de cosecha por especie? */
+function tieneCosechaLegado(datos: BitacoraDatos): boolean {
+  const c = datos.cosecha
+  return !!(c && (c.arabica_fecha || c.arabica_fecha_fin || c.arabica_kg_uva != null || c.robusta_fecha || c.robusta_fecha_fin || c.robusta_kg_uva != null))
+}
+
 interface Props {
   anio: number
   datos: BitacoraDatos
@@ -58,32 +64,41 @@ export default function BitacoraReport({
         <TablaActividades titulo="Manejo en campo" actividades={manejo} />
         <TablaActividades titulo="Actividades de cosecha" actividades={cosecha} />
 
-        {/* Cosecha por especie (fecha + kg en uva) */}
-        <h2 className="mb-1 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">Cosecha en uva</h2>
-        <table className="mb-4 w-full border-collapse text-[11px]">
-          <thead>
-            <tr className="bg-slate-50">
-              <Th>Especie</Th>
-              <Th>Inicio de cosecha</Th>
-              <Th>Término de cosecha</Th>
-              <Th>Cosecha en uva (kg)</Th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <Td>Café Arábica</Td>
-              <Td>{datos.cosecha?.arabica_fecha || '—'}</Td>
-              <Td>{datos.cosecha?.arabica_fecha_fin || '—'}</Td>
-              <Td>{datos.cosecha?.arabica_kg_uva ?? '—'}</Td>
-            </tr>
-            <tr>
-              <Td>Café Robusta</Td>
-              <Td>{datos.cosecha?.robusta_fecha || '—'}</Td>
-              <Td>{datos.cosecha?.robusta_fecha_fin || '—'}</Td>
-              <Td>{datos.cosecha?.robusta_kg_uva ?? '—'}</Td>
-            </tr>
-          </tbody>
-        </table>
+        {/* LEGADO: solo aparece si la bitácora se capturó con el formulario
+            viejo de cosecha por especie (antes de que "Fecha de cosecha" se
+            uniera al calendario). No se pierde lo ya capturado; no se muestra
+            si está vacío, para que el formato coincida con el original. */}
+        {tieneCosechaLegado(datos) && (
+          <>
+            <h2 className="mb-1 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">
+              Cosecha en uva (captura anterior)
+            </h2>
+            <table className="mb-4 w-full border-collapse text-[11px]">
+              <thead>
+                <tr className="bg-slate-50">
+                  <Th>Especie</Th>
+                  <Th>Inicio de cosecha</Th>
+                  <Th>Término de cosecha</Th>
+                  <Th>Cosecha en uva (kg)</Th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <Td>Café Arábica</Td>
+                  <Td>{datos.cosecha?.arabica_fecha || '—'}</Td>
+                  <Td>{datos.cosecha?.arabica_fecha_fin || '—'}</Td>
+                  <Td>{datos.cosecha?.arabica_kg_uva ?? '—'}</Td>
+                </tr>
+                <tr>
+                  <Td>Café Robusta</Td>
+                  <Td>{datos.cosecha?.robusta_fecha || '—'}</Td>
+                  <Td>{datos.cosecha?.robusta_fecha_fin || '—'}</Td>
+                  <Td>{datos.cosecha?.robusta_kg_uva ?? '—'}</Td>
+                </tr>
+              </tbody>
+            </table>
+          </>
+        )}
 
         {/* Insumos */}
         <h2 className="mb-1 mt-4 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">

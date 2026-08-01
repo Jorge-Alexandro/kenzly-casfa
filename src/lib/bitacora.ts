@@ -20,8 +20,12 @@ export interface BitacoraInsumo {
   fecha_aplicacion: string
 }
 
-// Cosecha por especie (CHESPAL): fecha y kilogramos EN UVA (cereza), separados
-// para café arábico y robusta (antes era una sola "Fecha de cosecha").
+// LEGADO: cosecha por especie con formulario propio (fecha inicio/fin + kg en
+// uva). Se reemplazó por la fila "Fecha de cosecha" del calendario de
+// actividades — igual que en el formato original de CASFA, y sin un segundo
+// lugar donde capturar lo mismo. El tipo se conserva (y BitacoraReport lo
+// sigue imprimiendo si tiene datos) solo para no perder lo que ya se capturó
+// con el formulario viejo; el editor ya no lo muestra para captura nueva.
 export interface BitacoraCosecha {
   arabica_fecha: string // inicio
   arabica_fecha_fin: string // término
@@ -74,6 +78,10 @@ const PLANTILLA_ACTIVIDADES: Omit<BitacoraActividad, 'gastos' | 'marcas'>[] = [
   { id: 'vivero', nombre: 'Vivero (N° de plantas / variedad)', grupo: 'manejo', detalle: '' },
   { id: 'abonar', nombre: 'Abonar (materiales)', grupo: 'manejo', detalle: '' },
   { id: 'limpieza_beneficio', nombre: 'Limpieza del beneficio húmedo', grupo: 'cosecha' },
+  // Fila 10 del formato original de CASFA: la fecha de cosecha se marca en el
+  // mismo calendario de quincenas que el resto de actividades (no en un
+  // formulario aparte) — es como el SIC la conoce del papel.
+  { id: 'fecha_cosecha', nombre: 'Fecha de cosecha', grupo: 'cosecha', detalle: '' },
   { id: 'conservacion_suelos', nombre: 'Conservación de suelos', grupo: 'cosecha' },
 ]
 

@@ -188,35 +188,8 @@ export default function BitacoraEditor({
         onActividad={setActividad}
       />
 
-      {/* Periodo de cosecha (mes inicio/término) + kg en uva, separado por
-          especie. Va aquí arriba, junto a las actividades (CHESPAL). */}
-      <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Periodo de cosecha
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <CosechaEspecie
-            titulo="Café Arábica"
-            fecha={datos.cosecha.arabica_fecha}
-            fechaFin={datos.cosecha.arabica_fecha_fin}
-            kg={datos.cosecha.arabica_kg_uva}
-            onFecha={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_fecha: v } }))}
-            onFechaFin={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_fecha_fin: v } }))}
-            onKg={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, arabica_kg_uva: v } }))}
-          />
-          <CosechaEspecie
-            titulo="Café Robusta"
-            fecha={datos.cosecha.robusta_fecha}
-            fechaFin={datos.cosecha.robusta_fecha_fin}
-            kg={datos.cosecha.robusta_kg_uva}
-            onFecha={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_fecha: v } }))}
-            onFechaFin={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_fecha_fin: v } }))}
-            onKg={(v) => setDatos((d) => ({ ...d, cosecha: { ...d.cosecha, robusta_kg_uva: v } }))}
-          />
-        </div>
-      </section>
-
-      {/* Actividades de cosecha */}
+      {/* Actividades de cosecha (incluye "Fecha de cosecha", fila 10 del
+          formato original — se marca en el mismo calendario, no aparte). */}
       <GridActividades
         actividades={cosecha}
         onMarca={toggleMarca}
@@ -278,75 +251,6 @@ export default function BitacoraEditor({
           className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
         />
       </section>
-    </div>
-  )
-}
-
-// Meses para elegir el periodo de cosecha (el año lo da la bitácora). Se guarda
-// el nombre del mes, como en el LPA ("Mayo - Junio"). Acepta un valor viejo
-// (fecha) mostrándolo como opción, para no perder datos ya capturados.
-const MESES_COSECHA = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-]
-function SelectMes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const esViejo = value && !MESES_COSECHA.includes(value)
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-    >
-      <option value="">—</option>
-      {MESES_COSECHA.map((m) => (
-        <option key={m} value={m}>{m}</option>
-      ))}
-      {esViejo && <option value={value}>{value}</option>}
-    </select>
-  )
-}
-
-// Cosecha por especie: mes de inicio/término + kg en uva.
-function CosechaEspecie({
-  titulo,
-  fecha,
-  fechaFin,
-  kg,
-  onFecha,
-  onFechaFin,
-  onKg,
-}: {
-  titulo: string
-  fecha: string
-  fechaFin: string
-  kg: number | null
-  onFecha: (v: string) => void
-  onFechaFin: (v: string) => void
-  onKg: (v: number | null) => void
-}) {
-  return (
-    <div className="rounded-md border border-slate-100 p-3">
-      <p className="mb-2 text-sm font-semibold text-slate-700">{titulo}</p>
-      <div className="mb-2 grid grid-cols-2 gap-2">
-        <label className="block">
-          <span className="mb-1 block text-xs text-slate-500">Mes de inicio de cosecha</span>
-          <SelectMes value={fecha} onChange={onFecha} />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs text-slate-500">Mes de término de cosecha</span>
-          <SelectMes value={fechaFin} onChange={onFechaFin} />
-        </label>
-      </div>
-      <label className="block">
-        <span className="mb-1 block text-xs text-slate-500">Cosecha en uva (kg)</span>
-        <input
-          type="number"
-          step="0.1"
-          value={kg ?? ''}
-          onChange={(e) => onKg(e.target.value === '' ? null : Number(e.target.value))}
-          className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-sm outline-none focus:border-orange-400"
-        />
-      </label>
     </div>
   )
 }
