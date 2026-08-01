@@ -24,7 +24,11 @@ export default async function AgroecologiaPage({
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol} />
+      <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
+        <Link href="/agroecologia/talleres" className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-700">
+          Talleres y reportes
+        </Link>
+      </AppHeader>
       <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
         <div className="mx-auto max-w-6xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">

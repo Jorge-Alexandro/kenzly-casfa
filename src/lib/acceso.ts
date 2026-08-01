@@ -16,6 +16,7 @@ export type RolAcceso =
 const SIC = [
   'panel', 'geosic', 'satelite', 'productores', 'certificacion', 'lpa',
   'certificados', 'estimacion', 'fichas', 'bitacora', 'historial', 'asistencia',
+  'agroecologia',
 ] as const
 
 const CONTABLE = [
