@@ -45,7 +45,7 @@ export async function getClientes(): Promise<ClienteVenta[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('ventas_cliente')
-    .select('id, rfc, nombre, regimen_fiscal')
+    .select('id, rfc, nombre, regimen_fiscal, tipo_cliente, pais')
     .order('nombre')
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as ClienteVenta[]

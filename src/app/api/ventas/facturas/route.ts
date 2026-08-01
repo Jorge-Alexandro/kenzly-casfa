@@ -47,16 +47,23 @@ export async function POST(request: Request) {
   }
 
   // Cliente por RFC (upsert: el nombre del CFDI manda, el SAT lo valida).
+  // Excepción: XAXX010101000 es el RFC genérico de "público en general" — no
+  // identifica a una persona, así que SIEMPRE se manda al mismo nombre
+  // canónico. Si se dejara pasar el nombre tal cual viene en cada factura
+  // ("PUBLICO EN GENERAL", "VENTAS AL PUBLICO", ...), cada variante de
+  // escritura crearía un "cliente" distinto — justo el ruido que se quiere
+  // evitar (ver docs/plan-ventas.md §1.3).
+  const esPublico = factura.receptor.rfc.trim().toUpperCase() === 'XAXX010101000'
   const { data: cliente, error: cliErr } = await supabase
     .from('ventas_cliente')
     .upsert(
       {
         org_id: session.orgId,
         rfc: factura.receptor.rfc,
-        nombre: factura.receptor.nombre,
+        nombre: esPublico ? 'VENTA AL PÚBLICO EN GENERAL' : factura.receptor.nombre,
         regimen_fiscal: factura.receptor.regimenFiscal,
       },
-      { onConflict: 'org_id,rfc' },
+      { onConflict: 'org_id,rfc,nombre_normalizado' },
     )
     .select('id')
     .single()

@@ -26,11 +26,27 @@ export const MESES_LARGO = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ] as const
 
+export type TipoCliente = 'nacional' | 'exportacion' | 'publico'
+
+export const TIPO_CLIENTE_LABEL: Record<TipoCliente, string> = {
+  nacional: 'Nacional',
+  exportacion: 'Comercio exterior',
+  publico: 'Público en general',
+}
+
+export const TIPO_CLIENTE_BADGE: Record<TipoCliente, string> = {
+  nacional: 'bg-emerald-50 text-emerald-700',
+  exportacion: 'bg-indigo-50 text-indigo-700',
+  publico: 'bg-slate-100 text-slate-600',
+}
+
 export interface ClienteVenta {
   id: string
   rfc: string
   nombre: string
   regimen_fiscal: string | null
+  tipo_cliente: TipoCliente
+  pais: string | null
 }
 
 export interface ProductoVenta {
