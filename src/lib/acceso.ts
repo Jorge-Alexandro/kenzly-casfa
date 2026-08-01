@@ -11,6 +11,7 @@ export type RolAcceso =
   | 'solo_lectura'
   | 'contador'
   | 'operativo'
+  | 'ventas'
 
 /** Sets de módulos por función, para no repetir listas. */
 const SIC = [
@@ -28,6 +29,12 @@ const CONTABLE = [
 // además está protegido por RLS (es_contador), así que ni leyéndolo lo vería.
 const OPERATIVO = ['acopio', 'salidas'] as const
 
+// Ventas (Diego): únicamente ventas, inventario de producto terminado y CRM.
+// 'inventario' todavía no existe como ruta propia (Fase 5 del plan de Ventas,
+// ver docs/plan-ventas.md) — cuando se construya, agregarla aquí también, o
+// el módulo queda invisible para este rol igual que le pasó a 'agroecologia'.
+const VENTAS = ['ventas', 'inventario', 'crm'] as const
+
 const MODULOS_POR_ROL: Record<RolAcceso, readonly string[] | 'todos'> = {
   admin: 'todos',
   coordinador: SIC,
@@ -35,6 +42,7 @@ const MODULOS_POR_ROL: Record<RolAcceso, readonly string[] | 'todos'> = {
   solo_lectura: SIC,
   contador: CONTABLE,
   operativo: OPERATIVO,
+  ventas: VENTAS,
 }
 
 /** Rutas que no pertenecen a ningún módulo y nunca se bloquean. */

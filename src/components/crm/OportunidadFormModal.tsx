@@ -53,6 +53,12 @@ export default function OportunidadFormModal({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Igual que en CuentaFormModal: sólo vendedores/admin como responsable,
+  // conservando el ya asignado aunque su rol haya cambiado.
+  const candidatos = miembros.filter(
+    (m) => m.rol === 'ventas' || m.rol === 'admin' || m.id === oportunidad?.responsable_id,
+  )
+
   const totalItems = useMemo(
     () =>
       items.reduce((s, it) => {
@@ -150,7 +156,7 @@ export default function OportunidadFormModal({
           <label className={LABEL}>Responsable</label>
           <select value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={SELECT}>
             <option value="">— Sin asignar —</option>
-            {miembros.map((m) => (
+            {candidatos.map((m) => (
               <option key={m.id} value={m.id}>{nombreMiembro(m)}</option>
             ))}
           </select>

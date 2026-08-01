@@ -41,6 +41,9 @@ export default function ActividadFormModal({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Igual que en CuentaFormModal/OportunidadFormModal: sólo vendedores/admin.
+  const candidatos = miembros.filter((m) => m.rol === 'ventas' || m.rol === 'admin')
+
   const esNota = tipo === 'nota'
 
   async function guardar() {
@@ -118,7 +121,7 @@ export default function ActividadFormModal({
               <label className={LABEL}>Responsable</label>
               <select value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={SELECT}>
                 <option value="">— Yo —</option>
-                {miembros.map((m) => (
+                {candidatos.map((m) => (
                   <option key={m.id} value={m.id}>{nombreMiembro(m)}</option>
                 ))}
               </select>

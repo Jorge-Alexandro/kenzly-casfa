@@ -18,6 +18,9 @@ export type RolMembresia =
   | 'contador'
   // Bodega/acopio (Axel): captura acopio y salidas, sin ver ni capturar dinero.
   | 'operativo'
+  // Ventas (Diego): ventas, inventario de producto terminado y CRM — nada de
+  // acopio, costos ni contabilidad.
+  | 'ventas'
 export type MetodoLevantamiento = 'google_earth' | 'gps' | 'qgis' | 'otro'
 
 export type EstadoValidacion =

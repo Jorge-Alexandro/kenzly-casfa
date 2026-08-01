@@ -90,6 +90,7 @@ export interface MiembroOrg {
   id: string
   nombre: string | null
   email: string | null
+  rol: string | null
 }
 
 export function nombreMiembro(m: MiembroOrg | null | undefined): string {

@@ -43,6 +43,13 @@ export default function CuentaFormModal({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // El responsable de una cuenta comercial debería ser quien vende — no tiene
+  // caso ofrecer a un inspector de SIC. Se conserva el ya asignado aunque su
+  // rol haya cambiado, para no dejar el select en un valor que no aparece.
+  const candidatos = miembros.filter(
+    (m) => m.rol === 'ventas' || m.rol === 'admin' || m.id === cuenta?.responsable_id,
+  )
+
   async function guardar() {
     setError(null)
     setGuardando(true)
@@ -134,7 +141,7 @@ export default function CuentaFormModal({
           <label className={LABEL}>Responsable</label>
           <select value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={SELECT}>
             <option value="">— Sin asignar —</option>
-            {miembros.map((m) => (
+            {candidatos.map((m) => (
               <option key={m.id} value={m.id}>{nombreMiembro(m)}</option>
             ))}
           </select>
