@@ -74,6 +74,32 @@ export interface HistorialPendiente {
   etiqueta: string
 }
 
+// Un productor nuevo dado de alta offline (body de POST /api/productores),
+// pendiente de subir. El código lo escribe el inspector a mano (esquema SIC:
+// <prefijo comunidad><secuencia>) — si dos personas offline usan el mismo
+// código, el que sincroniza segundo recibe 409 del servidor y la fila se
+// queda visible en "pendientes" con el error hasta que alguien lo corrija.
+export interface ProductorPendiente {
+  local_id: string
+  creada_en: number
+  body: {
+    codigo: string
+    nombre_completo: string
+    sexo: string | null
+    comunidad: string | null
+    municipio: string | null
+    anio_ingreso: number | null
+    tipo_productor: string
+    lat: number | null
+    lng: number | null
+    gps_precision_m: number | null
+    parcelas: { nombre: string; superficie_ha: number | null; tipo_cultivo: string }[]
+  }
+  etiqueta: string
+  /** Último error de sincronización (p.ej. "409 código ya existe"), si lo hubo. */
+  error?: string | null
+}
+
 // Una edición capturada offline: datos de catálogo (productor/parcela) o los
 // cambios a una ficha que ya existe en el servidor.
 export interface EdicionPendiente {
@@ -122,6 +148,10 @@ interface KenzlyDB extends DBSchema {
     key: string
     value: HistorialPendiente
   }
+  productoresPendientes: {
+    key: string
+    value: ProductorPendiente
+  }
   ediciones: {
     key: string
     value: EdicionPendiente
@@ -133,7 +163,7 @@ interface KenzlyDB extends DBSchema {
 }
 
 const DB_NAME = 'kenzly-geosic'
-const DB_VERSION = 5
+const DB_VERSION = 6
 
 let dbPromise: Promise<IDBPDatabase<KenzlyDB>> | null = null
 
@@ -161,6 +191,9 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('historiales')) {
           db.createObjectStore('historiales', { keyPath: 'local_id' })
+        }
+        if (!db.objectStoreNames.contains('productoresPendientes')) {
+          db.createObjectStore('productoresPendientes', { keyPath: 'local_id' })
         }
         if (!db.objectStoreNames.contains('ediciones')) {
           db.createObjectStore('ediciones', { keyPath: 'local_id' })
@@ -257,6 +290,24 @@ export async function contarHistorialesPendientes(): Promise<number> {
 export async function quitarHistorialPendiente(localId: string) {
   const db = await getDB()
   await db.delete('historiales', localId)
+}
+
+// --- Productores pendientes (alta offline) ---
+export async function encolarProductor(p: ProductorPendiente) {
+  const db = await getDB()
+  await db.put('productoresPendientes', p)
+}
+export async function listarProductoresPendientes(): Promise<ProductorPendiente[]> {
+  const db = await getDB()
+  return db.getAll('productoresPendientes')
+}
+export async function contarProductoresPendientes(): Promise<number> {
+  const db = await getDB()
+  return db.count('productoresPendientes')
+}
+export async function quitarProductorPendiente(localId: string) {
+  const db = await getDB()
+  await db.delete('productoresPendientes', localId)
 }
 
 // --- Ediciones pendientes (productor/parcela) ---

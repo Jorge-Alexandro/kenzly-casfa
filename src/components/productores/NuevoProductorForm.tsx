@@ -3,8 +3,15 @@
 // Alta de productor en campo (CHESPAL): datos básicos + GPS del teléfono +
 // parcelas iniciales con código automático <codigo>-<A|B|C…> (esquema SIC).
 // Disponible para todos los roles: los inspectores también dan de alta.
+//
+// Modo offline: sin red (o con `offline` forzado, como en el hub /offline) se
+// encola en el dispositivo y sube sola al recuperar señal — el GPS del
+// teléfono funciona igual sin conexión. El código lo sigue escribiendo el
+// inspector a mano; si choca con uno que otro ya subió, el servidor lo avisa
+// al sincronizar y la ficha queda visible en "pendientes" para corregirlo.
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { enviarOEncolarProductor } from '@/lib/offline/sync'
 
 interface ParcelaAlta {
   nombre: string
@@ -14,7 +21,18 @@ interface ParcelaAlta {
 
 const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-export default function NuevoProductorForm() {
+export default function NuevoProductorForm({
+  offline = false,
+  onGuardado,
+  onCancelar,
+}: {
+  /** Fuerza el camino offline (usado desde el hub /offline). */
+  offline?: boolean
+  /** Si viene, se llama al guardar en vez de navegar (uso dentro de /offline). */
+  onGuardado?: (info: { online: boolean }) => void
+  /** Si viene, "Cancelar" la llama en vez de navegar a /productores (necesita red). */
+  onCancelar?: () => void
+} = {}) {
   const router = useRouter()
   const [codigo, setCodigo] = useState('')
   const [nombre, setNombre] = useState('')
@@ -31,6 +49,7 @@ export default function NuevoProductorForm() {
   const [gpsEstado, setGpsEstado] = useState<'idle' | 'buscando' | 'error'>('idle')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [guardadaOffline, setGuardadaOffline] = useState(false)
 
   function capturarGps() {
     if (!('geolocation' in navigator)) {
@@ -61,35 +80,52 @@ export default function NuevoProductorForm() {
     if (!nombre.trim()) return setError('Falta el nombre completo')
     setBusy(true)
     setError(null)
+    const cuerpo = {
+      codigo: codigo.trim().toUpperCase(),
+      nombre_completo: nombre.trim(),
+      sexo: sexo || null,
+      comunidad: comunidad || null,
+      municipio: municipio || null,
+      anio_ingreso: anio ? Number(anio) : null,
+      tipo_productor: tipo,
+      lat: gps?.lat ?? null,
+      lng: gps?.lng ?? null,
+      gps_precision_m: gps?.prec ?? null,
+      parcelas: parcelas
+        .filter((p) => p.nombre.trim())
+        .map((p) => ({
+          nombre: p.nombre.trim(),
+          superficie_ha: p.superficie_ha ? Number(p.superficie_ha) : null,
+          tipo_cultivo: p.tipo_cultivo,
+        })),
+    }
     try {
+      if (offline) {
+        // Dentro del hub /offline: siempre se encola, nunca se navega (una
+        // navegación sin señal rebota a /offline y se pierde de vista).
+        const r = await enviarOEncolarProductor(cuerpo, `${cuerpo.codigo} · ${cuerpo.nombre_completo}`)
+        setGuardadaOffline(!r.online)
+        onGuardado?.({ online: r.online })
+        return
+      }
       const res = await fetch('/api/productores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codigo: codigo.trim(),
-          nombre_completo: nombre.trim(),
-          sexo: sexo || null,
-          comunidad: comunidad || null,
-          municipio: municipio || null,
-          anio_ingreso: anio ? Number(anio) : null,
-          tipo_productor: tipo,
-          lat: gps?.lat ?? null,
-          lng: gps?.lng ?? null,
-          gps_precision_m: gps?.prec ?? null,
-          parcelas: parcelas
-            .filter((p) => p.nombre.trim())
-            .map((p) => ({
-              nombre: p.nombre.trim(),
-              superficie_ha: p.superficie_ha ? Number(p.superficie_ha) : null,
-              tipo_cultivo: p.tipo_cultivo,
-            })),
-        }),
+        body: JSON.stringify(cuerpo),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok && res.status !== 207) throw new Error(body.error ?? `Error ${res.status}`)
       router.push(`/productores/${body.productor_id}`)
       router.refresh()
     } catch (e) {
+      // Sin conexión real (fuera del hub /offline, p.ej. se fue la señal a
+      // media captura): se encola igual, en vez de perder lo ya escrito.
+      if (e instanceof TypeError) {
+        await enviarOEncolarProductor(cuerpo, `${cuerpo.codigo} · ${cuerpo.nombre_completo}`)
+        setGuardadaOffline(true)
+        onGuardado?.({ online: false })
+        return
+      }
       setError(e instanceof Error ? e.message : 'Error al guardar')
       setBusy(false)
     }
@@ -223,20 +259,28 @@ export default function NuevoProductorForm() {
       </section>
 
       {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-red-600">{error}</p>}
+      {guardadaOffline && (
+        <p className="mb-3 rounded-md bg-amber-50 p-2 text-sm text-amber-700">
+          Sin conexión: el productor quedó guardado en el dispositivo y se dará de alta solo
+          cuando vuelva la señal. El código {codigo.trim().toUpperCase() || '—'} se reserva en
+          este aparato, pero si otro inspector usa el mismo código antes de sincronizar, uno de
+          los dos tendrá que cambiarlo — se avisa en &quot;pendientes por subir&quot;.
+        </p>
+      )}
 
       <div className="flex justify-end gap-2">
         <button
-          onClick={() => router.push('/productores')}
+          onClick={() => (onCancelar ? onCancelar() : router.push('/productores'))}
           className="rounded-md px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
         >
           Cancelar
         </button>
         <button
-          disabled={busy}
+          disabled={busy || guardadaOffline}
           onClick={guardar}
           className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-600 disabled:opacity-50"
         >
-          {busy ? 'Guardando…' : 'Dar de alta'}
+          {busy ? 'Guardando…' : guardadaOffline ? 'Guardado' : 'Dar de alta'}
         </button>
       </div>
     </div>

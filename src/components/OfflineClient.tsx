@@ -12,11 +12,13 @@ import BitacoraEditor from '@/components/bitacora/BitacoraEditor'
 import HistorialEditor from '@/components/historial/HistorialEditor'
 import { leerCatalogos } from '@/lib/offline/db'
 import { codigoCorto } from '@/lib/format'
-import ProductorParcelaBuscador, { type ProductorMin } from '@/components/ProductorParcelaBuscador'
+import ProductorParcelaBuscador from '@/components/ProductorParcelaBuscador'
+import ProductoresOffline from '@/components/productores/ProductoresOffline'
+import NuevoProductorForm from '@/components/productores/NuevoProductorForm'
 import PendientesLocales from '@/components/PendientesLocales'
-import type { ParcelaLite } from '@/lib/types'
+import type { ParcelaLite, ProductorLite } from '@/lib/types'
 
-type Vista = 'menu' | 'ficha' | 'bitacora' | 'historial'
+type Vista = 'menu' | 'ficha' | 'bitacora' | 'historial' | 'productores' | 'nuevo-productor'
 
 export default function OfflineClient() {
   const [vista, setVista] = useState<Vista>('menu')
@@ -48,6 +50,24 @@ export default function OfflineClient() {
     return (
       <Marco titulo="Nuevo historial (sin conexión)" onVolver={() => setVista('menu')}>
         <HistorialOffline onGuardado={() => volverConAcuse('El historial')} />
+      </Marco>
+    )
+  }
+  if (vista === 'productores') {
+    return (
+      <Marco titulo="Productores (sin conexión)" onVolver={() => setVista('menu')}>
+        <ProductoresOfflineWrap />
+      </Marco>
+    )
+  }
+  if (vista === 'nuevo-productor') {
+    return (
+      <Marco titulo="Nuevo productor (sin conexión)" onVolver={() => setVista('menu')}>
+        <NuevoProductorForm
+          offline
+          onCancelar={() => setVista('menu')}
+          onGuardado={() => volverConAcuse('El productor')}
+        />
       </Marco>
     )
   }
@@ -88,6 +108,18 @@ export default function OfflineClient() {
           className="rounded-md border border-orange-200 bg-white px-4 py-2.5 text-sm font-medium text-orange-700 transition hover:bg-orange-50"
         >
           Nuevo historial
+        </button>
+        <button
+          onClick={() => setVista('productores')}
+          className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+        >
+          Ver productores
+        </button>
+        <button
+          onClick={() => setVista('nuevo-productor')}
+          className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+        >
+          Nuevo productor / cooperativa
         </button>
       </div>
 
@@ -131,11 +163,14 @@ function Marco({
   )
 }
 
-// Hook que lee parcelas + productores cacheados (IndexedDB) para captura offline.
+// Hook que lee parcelas + productores cacheados (IndexedDB) para captura
+// offline. `productores` va completo (ProductorLite): sirve tanto para los
+// buscadores (que solo usan nombre/código) como para el directorio de
+// consulta, que además muestra comunidad, nivel de certificación, etc.
 function useParcelasCache() {
   const [estado, setEstado] = useState<
     | { fase: 'cargando' }
-    | { fase: 'listo'; parcelas: ParcelaLite[]; productores: ProductorMin[] }
+    | { fase: 'listo'; parcelas: ParcelaLite[]; productores: ProductorLite[] }
     | { fase: 'sin_datos' }
   >({ fase: 'cargando' })
   useEffect(() => {
@@ -159,6 +194,14 @@ function SinDatos() {
       (con tu sesión iniciada) para descargarlas y poder capturar sin señal.
     </div>
   )
+}
+
+function ProductoresOfflineWrap() {
+  const est = useParcelasCache()
+  if (est.fase === 'cargando')
+    return <div className="p-10 text-center text-sm text-slate-500">Cargando productores…</div>
+  if (est.fase === 'sin_datos') return <SinDatos />
+  return <ProductoresOffline productores={est.productores} parcelas={est.parcelas} />
 }
 
 function BitacoraOffline({ onGuardada }: { onGuardada: () => void }) {

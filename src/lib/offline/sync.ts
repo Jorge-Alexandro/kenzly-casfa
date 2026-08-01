@@ -24,11 +24,16 @@ import {
   listarEdicionesPendientes,
   quitarEdicionPendiente,
   contarEdicionesPendientes,
+  encolarProductor,
+  listarProductoresPendientes,
+  quitarProductorPendiente,
+  contarProductoresPendientes,
   type FichaPendiente,
   type RemisionPendiente,
   type BitacoraPendiente,
   type HistorialPendiente,
   type EdicionPendiente,
+  type ProductorPendiente,
   type CatalogosCache,
 } from './db'
 
@@ -215,35 +220,68 @@ export async function enviarOEncolarEdicion(
   return { online: false }
 }
 
-// Suma de pendientes de todas las colas (fichas + bitácoras + historiales + ediciones).
+// --- Alta de productor (offline-first): el código lo escribe el inspector a
+// mano, así que el servidor puede rechazarlo por duplicado (409) hasta rato
+// después de capturado. Ese caso NO se descarta: se guarda con el error en la
+// misma cola, para que "pendientes" lo muestre y alguien lo corrija.
+export async function enviarOEncolarProductor(
+  body: ProductorPendiente['body'],
+  etiqueta: string,
+): Promise<{ online: boolean; productorId?: string }> {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch('/api/productores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok || res.status === 207) return { online: true, productorId: data.productor_id }
+      throw new Error(data.error ?? `Error ${res.status}`)
+    } catch (e) {
+      if (e instanceof TypeError) {
+        await encolarProductor({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
+        return { online: false }
+      }
+      throw e
+    }
+  }
+  await encolarProductor({ local_id: uuid(), creada_en: Date.now(), body, etiqueta })
+  return { online: false }
+}
+
+// Suma de pendientes de todas las colas (fichas + bitácoras + historiales + ediciones + productores).
 export async function contarPendientes(): Promise<number> {
-  const [f, b, h, e] = await Promise.all([
+  const [f, b, h, e, p] = await Promise.all([
     contarFichasPendientes(),
     contarBitacorasPendientes(),
     contarHistorialesPendientes(),
     contarEdicionesPendientes(),
+    contarProductoresPendientes(),
   ])
-  return f + b + h + e
+  return f + b + h + e + p
 }
 
 // Lista legible de TODO lo pendiente de subir (para "ver borradores pendientes").
 export interface PendienteResumen {
-  tipo: 'Ficha' | 'Bitácora' | 'Historial' | 'Edición'
+  tipo: 'Ficha' | 'Bitácora' | 'Historial' | 'Edición' | 'Productor'
   etiqueta: string
   creada_en: number
 }
 export async function listarTodosPendientes(): Promise<PendienteResumen[]> {
-  const [fichas, bitas, hists, edics] = await Promise.all([
+  const [fichas, bitas, hists, edics, prods] = await Promise.all([
     listarPendientes(),
     listarBitacorasPendientes(),
     listarHistorialesPendientes(),
     listarEdicionesPendientes(),
+    listarProductoresPendientes(),
   ])
   const items: PendienteResumen[] = [
     ...fichas.map((f) => ({ tipo: 'Ficha' as const, etiqueta: f.etiqueta, creada_en: f.creada_en })),
     ...bitas.map((b) => ({ tipo: 'Bitácora' as const, etiqueta: b.etiqueta, creada_en: b.creada_en })),
     ...hists.map((h) => ({ tipo: 'Historial' as const, etiqueta: h.etiqueta, creada_en: h.creada_en })),
     ...edics.map((e) => ({ tipo: 'Edición' as const, etiqueta: e.etiqueta, creada_en: e.creada_en })),
+    ...prods.map((p) => ({ tipo: 'Productor' as const, etiqueta: p.etiqueta, creada_en: p.creada_en })),
   ]
   return items.sort((a, b) => b.creada_en - a.creada_en)
 }
@@ -318,6 +356,29 @@ export async function vaciarCola(): Promise<{ enviadas: number; restantes: numbe
       }
     } catch {
       break
+    }
+  }
+
+  // Altas de productor. El código lo tecleó el inspector a mano: si choca con
+  // uno que otro inspector ya subió, el servidor responde 409 — eso NO es un
+  // fallo de red, así que la fila se queda en la cola CON el error puesto,
+  // en vez de reintentar en silencio para siempre.
+  for (const p of await listarProductoresPendientes()) {
+    try {
+      const res = await fetch('/api/productores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p.body),
+      })
+      if (res.ok || res.status === 207) {
+        await quitarProductorPendiente(p.local_id)
+        enviadas++
+      } else {
+        const b = await res.json().catch(() => ({}))
+        await encolarProductor({ ...p, error: b.error ?? `Error ${res.status}` })
+      }
+    } catch {
+      break // sin red
     }
   }
 
