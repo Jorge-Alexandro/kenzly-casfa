@@ -2,19 +2,27 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSessionResult } from '@/lib/session'
-import { getEstimaciones } from '@/lib/data/estimacion'
+import { getEstimaciones, getResumenProduccion } from '@/lib/data/estimacion'
 import { METODO_LABEL } from '@/lib/agroecologia/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
+import ResumenProduccion from '@/components/agroecologia/ResumenProduccion'
 
 export const dynamic = 'force-dynamic'
 
-export default async function EstimacionPage() {
+export default async function EstimacionPage({
+  searchParams,
+}: {
+  searchParams: { ciclo?: string }
+}) {
   const result = await getSessionResult()
   if (result.kind === 'no-auth') redirect('/login')
   if (result.kind === 'no-membership') return <NoMembership />
 
-  const filas = await getEstimaciones()
+  const [filas, resumen] = await Promise.all([
+    getEstimaciones(),
+    getResumenProduccion(searchParams.ciclo ?? null),
+  ])
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
@@ -35,6 +43,8 @@ export default async function EstimacionPage() {
               {filas.length} estimaci{filas.length === 1 ? 'ón' : 'ones'} · alimenta el LPA y los inventarios de Agroecología
             </p>
           </div>
+
+          <ResumenProduccion resumen={resumen} />
 
           {filas.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">

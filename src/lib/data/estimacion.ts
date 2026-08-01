@@ -1,6 +1,7 @@
 // Agroecología — Estimación de cosecha: consultas del lado servidor.
 // RLS acota por organización; los tipos puros viven en @/lib/agroecologia/tipos.
 import { createClient } from '@/lib/supabase/server'
+import { qqAUva, redondear, OQ_ORO_KG } from '@/lib/agroecologia/estimacion.mjs'
 import type {
   EstimacionRow,
   Reglas,
@@ -62,6 +63,77 @@ export async function getEstimaciones(): Promise<EstimacionRow[]> {
       fecha: r.fecha as string,
     }
   })
+}
+
+// --- Resumen de producción por cultivo (pedido del SIC) ---------------------
+// El café tiene DOS formas físicas: la comercial/nativa del cultivo (cereza
+// para robusta, pergamino para árabe — así vienen las boletas de CASFA) y el
+// café UVA (cereza fresca), que se deriva del quintal ORO (invariante) con el
+// mismo factor 5:1 que ya usan la ficha, la bitácora y el historial. Quintales
+// y toneladas son la misma cifra en dos unidades, no un tercer eje.
+export interface ResumenCultivo {
+  cultivo: 'cafe_robusta' | 'cafe_arabe'
+  /** Filas de estimación que entraron en la suma (para saber si el número es de fiar). */
+  n: number
+  /** Kg en la base comercial del cultivo: cereza (robusta) o pergamino (árabe). */
+  nativo_kg: number
+  nativo_tm: number
+  /** Café uva (cereza fresca), kg — mismo factor 5:1 que ficha/bitácora/historial. */
+  uva_kg: number
+  uva_tm: number
+  /** Quintales oro (invariante de base) y su equivalente en toneladas. */
+  qq_oro: number
+  oro_tm: number
+}
+export interface ResumenProduccion {
+  ciclo: string | null
+  ciclos: string[]
+  robusta: ResumenCultivo
+  arabe: ResumenCultivo
+}
+
+export async function getResumenProduccion(ciclo?: string | null): Promise<ResumenProduccion> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('estimacion_cosecha')
+    .select('ciclo, cultivo, kg_estimado, qq_estimado, valor_final_kg')
+    .in('cultivo', ['cafe_robusta', 'cafe_arabe'])
+    .limit(20000)
+  if (error) throw new Error(error.message)
+
+  const rows = (data ?? []) as {
+    ciclo: string
+    cultivo: string
+    kg_estimado: number | null
+    qq_estimado: number | null
+    valor_final_kg: number | null
+  }[]
+  const ciclos = Array.from(new Set(rows.map((r) => r.ciclo))).sort()
+  const cicloSel = ciclo ?? ciclos[ciclos.length - 1] ?? null
+
+  function agrega(cultivo: 'cafe_robusta' | 'cafe_arabe'): ResumenCultivo {
+    const filas = rows.filter((r) => r.cultivo === cultivo && (!cicloSel || r.ciclo === cicloSel))
+    const nativoKg = filas.reduce((s, r) => s + Number(r.valor_final_kg ?? r.kg_estimado ?? 0), 0)
+    const qqOro = filas.reduce((s, r) => s + Number(r.qq_estimado ?? 0), 0)
+    const uvaKg = qqAUva(qqOro)
+    return {
+      cultivo,
+      n: filas.length,
+      nativo_kg: redondear(nativoKg, 1),
+      nativo_tm: redondear(nativoKg / 1000, 3),
+      uva_kg: redondear(uvaKg, 1),
+      uva_tm: redondear(uvaKg / 1000, 3),
+      qq_oro: redondear(qqOro, 3),
+      oro_tm: redondear((qqOro * OQ_ORO_KG) / 1000, 3),
+    }
+  }
+
+  return {
+    ciclo: cicloSel,
+    ciclos,
+    robusta: agrega('cafe_robusta'),
+    arabe: agrega('cafe_arabe'),
+  }
 }
 
 export async function getParcelasDeProductor(productorId: string): Promise<ParcelaLite[]> {
