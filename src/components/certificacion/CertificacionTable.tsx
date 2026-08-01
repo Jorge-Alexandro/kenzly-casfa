@@ -13,6 +13,31 @@ import {
   type ProductorCert,
 } from '@/lib/certificacion/tipos'
 
+// Grupo para contar/ordenar: el nivel VIGENTE es el del año más reciente que
+// el productor tenga capturado (no un año fijo — cada quien puede llevar un
+// historial distinto de años). 'baja' y 'sin_nivel' son grupos aparte porque
+// no son un nivel de certificación real.
+type Grupo = NivelCertificacion | 'baja' | 'sin_nivel'
+// Orden que pidió el SIC: primero Orgánico, luego la transición de mayor a
+// menor (T3→T2→T1), y al final lo que no cuenta como certificado todavía.
+const GRUPO_ORDEN: Grupo[] = ['organico', 't3', 't2', 't1', 'nuevo', 'sin_nivel', 'baja']
+const GRUPO_LABEL: Record<Grupo, string> = {
+  organico: 'Orgánico', t3: 'T3', t2: 'T2', t1: 'T1', nuevo: 'Nuevo',
+  sin_nivel: 'Sin nivel', baja: 'Baja',
+}
+const GRUPO_BADGE: Record<Grupo, string> = {
+  ...NIVEL_BADGE,
+  sin_nivel: 'bg-white text-slate-400 ring-1 ring-slate-200',
+  baja: 'bg-rose-100 text-rose-700',
+}
+
+/** Nivel vigente de un productor: el del año con dato más reciente. */
+function grupoDe(p: ProductorCert, aniosDesc: number[]): Grupo {
+  if (p.baja) return 'baja'
+  for (const a of aniosDesc) if (p.estatus[a]) return p.estatus[a].nivel
+  return 'sin_nivel'
+}
+
 export default function CertificacionTable({
   anios,
   productores,
@@ -22,17 +47,29 @@ export default function CertificacionTable({
 }) {
   const [prods, setProds] = useState(productores)
   const [filtro, setFiltro] = useState('')
+  const [grupoActivo, setGrupoActivo] = useState<Grupo | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // `anios` ya viene descendente desde el servidor (más reciente primero).
+  const conteos = useMemo(() => {
+    const c = Object.fromEntries(GRUPO_ORDEN.map((g) => [g, 0])) as Record<Grupo, number>
+    for (const p of prods) c[grupoDe(p, anios)]++
+    return c
+  }, [prods, anios])
 
   const visibles = useMemo(() => {
     const q = filtro.trim().toLowerCase()
-    const base = q
+    let base = q
       ? prods.filter(
           (p) => p.nombre_completo.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q),
         )
       : prods
-    return base.slice(0, 300)
-  }, [prods, filtro])
+    if (grupoActivo) base = base.filter((p) => grupoDe(p, anios) === grupoActivo)
+    // Ordenado por el nivel vigente (Orgánico primero), como pidió el SIC.
+    return [...base]
+      .sort((a, b) => GRUPO_ORDEN.indexOf(grupoDe(a, anios)) - GRUPO_ORDEN.indexOf(grupoDe(b, anios)))
+      .slice(0, 300)
+  }, [prods, filtro, grupoActivo, anios])
 
   async function fijarNivel(pid: string, anio: number, nivel: NivelCertificacion) {
     setError(null)
@@ -71,6 +108,30 @@ export default function CertificacionTable({
 
   return (
     <div className="space-y-3">
+      {/* Conteo por estatus vigente — clic filtra la tabla. */}
+      <div className="flex flex-wrap gap-2">
+        {GRUPO_ORDEN.map((g) => (
+          <button
+            key={g}
+            onClick={() => setGrupoActivo((cur) => (cur === g ? null : g))}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${GRUPO_BADGE[g]} ${
+              grupoActivo === g ? 'ring-2 ring-offset-1 ring-orange-400' : 'opacity-90 hover:opacity-100'
+            }`}
+          >
+            {GRUPO_LABEL[g]}
+            <span className="tabular-nums">{conteos[g]}</span>
+          </button>
+        ))}
+        {grupoActivo && (
+          <button
+            onClick={() => setGrupoActivo(null)}
+            className="rounded-full px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+          >
+            Quitar filtro ✕
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <input
           type="text"
