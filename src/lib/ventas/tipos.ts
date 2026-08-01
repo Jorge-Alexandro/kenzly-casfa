@@ -95,6 +95,22 @@ export interface VentasProductoMes {
   total_importe: number
 }
 
+// El reporte viejo de Excel calculaba "Kilogramos Procesados" con =Cantidad/2
+// en TODAS las filas — sólo por coincidencia acertaba en la presentación de
+// 500 g; en la de 908 g subestimaba el kilaje real ~45%. kg_por_unidad ya se
+// deriva bien por producto, pero esta función AUDITA que siga siendo así:
+// lee el gramaje que trae el propio nombre del producto (el que factura el
+// SAT) y lo compara. Sólo advierte — nunca decide sola, un producto sin
+// gramaje en el nombre (a granel, "CUBETA/5KG") no se puede verificar así.
+export function gramajeDelNombre(nombre: string): number | null {
+  const coincidencias = Array.from(nombre.matchAll(/(\d+(?:[.,]\d+)?)\s*(kgs?|grs?|g)\b/gi))
+  if (coincidencias.length === 0) return null
+  const [, valorTxt, unidad] = coincidencias[coincidencias.length - 1]
+  const valor = Number(valorTxt.replace(',', '.'))
+  if (!Number.isFinite(valor) || valor <= 0) return null
+  return /^k/i.test(unidad) ? valor : valor / 1000
+}
+
 export function formatoMXN(n: number): string {
   return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
 }

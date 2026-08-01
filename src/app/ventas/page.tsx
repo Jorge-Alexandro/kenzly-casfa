@@ -67,6 +67,12 @@ export default async function VentasPage({
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <AppHeader orgNombre={result.session.orgNombre} rol={result.session.rol}>
         <Link
+          href="/ventas/tabulador"
+          className="hidden whitespace-nowrap rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 sm:block"
+        >
+          Tabulador
+        </Link>
+        <Link
           href="/ventas/importar"
           className="hidden whitespace-nowrap rounded-md border border-orange-600 px-3 py-1.5 text-sm font-medium text-orange-700 transition hover:bg-orange-50 sm:block"
         >
