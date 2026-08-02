@@ -21,6 +21,9 @@ export type RolMembresia =
   // Ventas (Diego): ventas, inventario de producto terminado y CRM — nada de
   // acopio, costos ni contabilidad.
   | 'ventas'
+  // Gerente de Agroecología (Ing. Iván Romari): el SIC completo + acopio y
+  // contratos, sin contabilidad/gastos/ventas/inventario/CRM.
+  | 'gerente_agroecologia'
 export type MetodoLevantamiento = 'google_earth' | 'gps' | 'qgis' | 'otro'
 
 export type EstadoValidacion =

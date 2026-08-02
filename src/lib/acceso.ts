@@ -12,6 +12,7 @@ export type RolAcceso =
   | 'contador'
   | 'operativo'
   | 'ventas'
+  | 'gerente_agroecologia'
 
 /** Sets de módulos por función, para no repetir listas. */
 const SIC = [
@@ -32,6 +33,10 @@ const OPERATIVO = ['acopio', 'salidas'] as const
 // Ventas (Diego): únicamente ventas, inventario de producto terminado y CRM.
 const VENTAS = ['ventas', 'inventario', 'crm'] as const
 
+// Gerente de Agroecología (Ing. Iván Romari): el SIC completo + acopio y
+// contratos — nada de contabilidad, gastos, ventas, inventario ni CRM.
+const GERENTE_AGROECOLOGIA = [...SIC, 'acopio', 'contratos'] as const
+
 const MODULOS_POR_ROL: Record<RolAcceso, readonly string[] | 'todos'> = {
   admin: 'todos',
   coordinador: SIC,
@@ -40,6 +45,7 @@ const MODULOS_POR_ROL: Record<RolAcceso, readonly string[] | 'todos'> = {
   contador: CONTABLE,
   operativo: OPERATIVO,
   ventas: VENTAS,
+  gerente_agroecologia: GERENTE_AGROECOLOGIA,
 }
 
 /** Rutas que no pertenecen a ningún módulo y nunca se bloquean. */
