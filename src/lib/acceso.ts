@@ -22,7 +22,7 @@ const SIC = [
 
 const CONTABLE = [
   'panel', 'acopio', 'salidas', 'contabilidad', 'gastos', 'concentrado',
-  'ventas', 'crm',
+  'ventas', 'inventario', 'crm',
 ] as const
 
 // Bodega: captura acopio y salidas. NADA de dinero — y el precio de venta
@@ -30,9 +30,6 @@ const CONTABLE = [
 const OPERATIVO = ['acopio', 'salidas'] as const
 
 // Ventas (Diego): únicamente ventas, inventario de producto terminado y CRM.
-// 'inventario' todavía no existe como ruta propia (Fase 5 del plan de Ventas,
-// ver docs/plan-ventas.md) — cuando se construya, agregarla aquí también, o
-// el módulo queda invisible para este rol igual que le pasó a 'agroecologia'.
 const VENTAS = ['ventas', 'inventario', 'crm'] as const
 
 const MODULOS_POR_ROL: Record<RolAcceso, readonly string[] | 'todos'> = {

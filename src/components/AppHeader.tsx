@@ -27,6 +27,7 @@ const TABS: { href: string; label: string }[] = [
   { href: '/gastos', label: 'Gastos' },
   { href: '/concentrado', label: 'Concentrado' },
   { href: '/ventas', label: 'Ventas' },
+  { href: '/inventario', label: 'Inventario' },
   { href: '/contratos', label: 'Contratos' },
   { href: '/crm', label: 'CRM' },
   { href: '/estimacion', label: 'Estimación' },

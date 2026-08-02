@@ -16,7 +16,7 @@ import {
   porTipoCliente,
   agregarPorProductoMes,
 } from '@/lib/data/ventas'
-import { formatoMXN, formatoNum, ORIGEN_LABEL, ORIGEN_BADGE, TIPO_CLIENTE_LABEL } from '@/lib/ventas/tipos'
+import { formatoMXN, ORIGEN_LABEL, ORIGEN_BADGE, TIPO_CLIENTE_LABEL } from '@/lib/ventas/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import GraficaEstacional from '@/components/ventas/GraficaEstacional'
@@ -216,31 +216,29 @@ export default async function VentasPage({
             <TablaCatalogo matriz={matriz} totalCatalogo={productos.length} />
           </div>
 
-          {/* 5 — Inventario + últimas ventas */}
+          {/* 5 — Inventario (resumen, el detalle vive en su propia pestaña) + últimas ventas */}
           <div className="grid gap-5 xl:grid-cols-2">
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">
-                Inventario de producto terminado
-              </h2>
-              {stock.length === 0 ? (
-                <p className="px-4 py-6 text-sm text-slate-400">
-                  Sin registros. El inventario se descuenta con cada venta manual.
-                </p>
-              ) : (
-                <table className="w-full text-sm">
-                  <tbody className="divide-y divide-slate-100">
-                    {stock.map((s) => (
-                      <tr key={s.producto_id}>
-                        <td className="max-w-[20rem] truncate px-4 py-2 text-slate-700">{s.producto?.nombre ?? '—'}</td>
-                        <td className={`px-4 py-2 text-right font-mono tabular-nums ${Number(s.cantidad_disponible) < 0 ? 'text-rose-600' : 'text-slate-700'}`}>
-                          {formatoNum(Number(s.cantidad_disponible), 3)} {s.unidad}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <Link
+              href="/inventario"
+              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 transition hover:border-orange-300"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-700">Inventario de producto terminado</h2>
+                <span className="text-sm font-medium text-orange-700">Ver todo →</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-slate-500">Productos con stock</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums text-slate-800">{stock.length}</p>
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-wider text-slate-500">En negativo</p>
+                  <p className={`mt-1 text-xl font-bold tabular-nums ${stock.some((s) => Number(s.cantidad_disponible) < 0) ? 'text-rose-600' : 'text-slate-800'}`}>
+                    {stock.filter((s) => Number(s.cantidad_disponible) < 0).length}
+                  </p>
+                </div>
+              </div>
+            </Link>
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">

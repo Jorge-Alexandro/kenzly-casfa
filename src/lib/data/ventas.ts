@@ -7,6 +7,7 @@ import type {
   EstadoPedido,
   FacturaPedido,
   LineaPedido,
+  MovimientoRow,
   OrigenVenta,
   PagoPedido,
   PedidoDetalle,
@@ -14,6 +15,7 @@ import type {
   ProductoVenta,
   StockRow,
   TipoCliente,
+  TipoMovimiento,
   VentasProductoMes,
 } from '@/lib/ventas/tipos'
 
@@ -350,4 +352,50 @@ export function porTipoCliente(detalles: DetalleRow[]): { tipo_cliente: TipoClie
   return Array.from(map.entries())
     .map(([tipo_cliente, importe]) => ({ tipo_cliente, importe, pct: total > 0 ? importe / total : 0 }))
     .sort((a, b) => b.importe - a.importe)
+}
+
+// ----------------------------------------------------------------------------
+// Inventario — movimientos que no son venta (regalía/cortesía/merma/ajuste).
+// La venta ya descuenta stock sola desde la Fase 4; esto es la pestaña aparte.
+// ----------------------------------------------------------------------------
+interface MovimientoCrudo {
+  id: string
+  producto_id: string
+  tipo: TipoMovimiento
+  cantidad: number | string
+  fecha: string
+  motivo: string | null
+  producto: { nombre: string; unidad: string } | { nombre: string; unidad: string }[] | null
+  cliente: { nombre: string } | { nombre: string }[] | null
+}
+
+export async function getMovimientos(): Promise<MovimientoRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ventas_movimiento')
+    .select(
+      'id, producto_id, tipo, cantidad, fecha, motivo,' +
+        ' producto:ventas_producto(nombre, unidad),' +
+        ' cliente:ventas_cliente(nombre)',
+    )
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1000)
+  if (error) throw new Error(error.message)
+
+  return ((data ?? []) as unknown as MovimientoCrudo[]).map((m) => {
+    const producto = unoDe(m.producto)
+    const cliente = unoDe(m.cliente)
+    return {
+      id: m.id,
+      producto_id: m.producto_id,
+      producto_nombre: producto?.nombre ?? '—',
+      producto_unidad: producto?.unidad ?? '',
+      tipo: m.tipo,
+      cantidad: Number(m.cantidad),
+      cliente_nombre: cliente?.nombre ?? null,
+      fecha: m.fecha,
+      motivo: m.motivo,
+    }
+  })
 }

@@ -209,6 +209,53 @@ export function estadoCobranza(p: { fecha: string; dias_credito: number; total: 
   return 'al_corriente'
 }
 
+// ----------------------------------------------------------------------------
+// Inventario — movimientos que NO son venta (la venta ya descuenta stock sola
+// vía el pedido, Fase 4). Esto es "pestaña aparte" a propósito: regalía y
+// cortesía SALEN sin cobro, merma es pérdida, los ajustes corrigen el conteo.
+// ----------------------------------------------------------------------------
+export type TipoMovimiento = 'regalia' | 'cortesia' | 'merma' | 'ajuste_mas' | 'ajuste_menos' | 'entrada'
+
+export const TIPO_MOVIMIENTO_LABEL: Record<TipoMovimiento, string> = {
+  regalia: 'Regalía',
+  cortesia: 'Cortesía',
+  merma: 'Merma',
+  ajuste_mas: 'Ajuste (+)',
+  ajuste_menos: 'Ajuste (−)',
+  entrada: 'Entrada',
+}
+
+export const TIPO_MOVIMIENTO_BADGE: Record<TipoMovimiento, string> = {
+  regalia: 'bg-indigo-50 text-indigo-700',
+  cortesia: 'bg-sky-50 text-sky-700',
+  merma: 'bg-rose-50 text-rose-700',
+  ajuste_mas: 'bg-emerald-50 text-emerald-700',
+  ajuste_menos: 'bg-amber-50 text-amber-700',
+  entrada: 'bg-emerald-50 text-emerald-700',
+}
+
+/** true = suma al inventario; false = resta. */
+export const MOVIMIENTO_SUMA: Record<TipoMovimiento, boolean> = {
+  regalia: false,
+  cortesia: false,
+  merma: false,
+  ajuste_menos: false,
+  ajuste_mas: true,
+  entrada: true,
+}
+
+export interface MovimientoRow {
+  id: string
+  producto_id: string
+  producto_nombre: string
+  producto_unidad: string
+  tipo: TipoMovimiento
+  cantidad: number
+  cliente_nombre: string | null
+  fecha: string
+  motivo: string | null
+}
+
 export function formatoMXN(n: number): string {
   return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
 }
