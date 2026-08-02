@@ -13,6 +13,7 @@ import type {
   PedidoRow,
   ProductoVenta,
   StockRow,
+  TipoCliente,
   VentasProductoMes,
 } from '@/lib/ventas/tipos'
 
@@ -44,7 +45,7 @@ export interface DetalleRow {
   // 0019 agregó 'historico' — el tipo debe reflejar los tres orígenes reales
   origen: OrigenVenta
   producto: { id: string; nombre: string; linea: string; unidad: string; kg_por_unidad: number } | null
-  cliente: { id: string; rfc: string; nombre: string } | null
+  cliente: { id: string; rfc: string; nombre: string; tipo_cliente: TipoCliente } | null
 }
 
 export async function getClientes(): Promise<ClienteVenta[]> {
@@ -97,7 +98,7 @@ export async function getDetalles(anio: number): Promise<DetalleRow[]> {
     .select(
       'id, factura_id, cantidad, precio_unitario, importe, fecha, alerta_precio, origen, ' +
         'producto:ventas_producto(id, nombre, linea, unidad, kg_por_unidad), ' +
-        'cliente:ventas_cliente(id, rfc, nombre)',
+        'cliente:ventas_cliente(id, rfc, nombre, tipo_cliente)',
     )
     .gte('fecha', `${anio}-01-01`)
     .lte('fecha', `${anio}-12-31`)
@@ -303,4 +304,50 @@ export function porLinea(detalles: DetalleRow[]): { linea: string; importe: numb
     map.set(linea, fila)
   }
   return Array.from(map.values()).sort((a, b) => b.importe - a.importe)
+}
+
+// Top clientes por importe — el KPI que se pidió desde el principio. Sólo
+// tiene sentido real desde la Fase 1 (antes, exportación/público colapsaban
+// en un cliente genérico y este ranking hubiera salido inútil).
+export interface ClienteRanking {
+  cliente_id: string
+  nombre: string
+  tipo_cliente: TipoCliente
+  importe: number
+  num_ventas: number
+  ultima_compra: string
+}
+
+export function porCliente(detalles: DetalleRow[]): ClienteRanking[] {
+  const map = new Map<string, ClienteRanking>()
+  for (const d of detalles) {
+    if (!d.cliente) continue
+    const fila = map.get(d.cliente.id) ?? {
+      cliente_id: d.cliente.id,
+      nombre: d.cliente.nombre,
+      tipo_cliente: d.cliente.tipo_cliente,
+      importe: 0,
+      num_ventas: 0,
+      ultima_compra: d.fecha,
+    }
+    fila.importe += Number(d.importe)
+    fila.num_ventas += 1
+    if (d.fecha > fila.ultima_compra) fila.ultima_compra = d.fecha
+    map.set(d.cliente.id, fila)
+  }
+  return Array.from(map.values()).sort((a, b) => b.importe - a.importe)
+}
+
+// Importe y % por tipo de cliente (nacional / comercio exterior / público).
+export function porTipoCliente(detalles: DetalleRow[]): { tipo_cliente: TipoCliente; importe: number; pct: number }[] {
+  const map = new Map<TipoCliente, number>()
+  let total = 0
+  for (const d of detalles) {
+    if (!d.cliente) continue
+    map.set(d.cliente.tipo_cliente, (map.get(d.cliente.tipo_cliente) ?? 0) + Number(d.importe))
+    total += Number(d.importe)
+  }
+  return Array.from(map.entries())
+    .map(([tipo_cliente, importe]) => ({ tipo_cliente, importe, pct: total > 0 ? importe / total : 0 }))
+    .sort((a, b) => b.importe - a.importe)
 }

@@ -12,9 +12,11 @@ import {
   getStock,
   totalPorMes,
   porLinea,
+  porCliente,
+  porTipoCliente,
   agregarPorProductoMes,
 } from '@/lib/data/ventas'
-import { formatoMXN, formatoNum, ORIGEN_LABEL, ORIGEN_BADGE } from '@/lib/ventas/tipos'
+import { formatoMXN, formatoNum, ORIGEN_LABEL, ORIGEN_BADGE, TIPO_CLIENTE_LABEL } from '@/lib/ventas/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
 import GraficaEstacional from '@/components/ventas/GraficaEstacional'
@@ -22,6 +24,7 @@ import GraficaDona from '@/components/ventas/GraficaDona'
 import GraficaTopProductos from '@/components/ventas/GraficaTopProductos'
 import GraficaValorVolumen from '@/components/ventas/GraficaValorVolumen'
 import TablaCatalogo from '@/components/ventas/TablaCatalogo'
+import TablaTopClientes from '@/components/ventas/TablaTopClientes'
 import BackupVentas from '@/components/ventas/BackupVentas'
 
 export const dynamic = 'force-dynamic'
@@ -58,6 +61,8 @@ export default async function VentasPage({
 
   const meses = totalPorMes(detalles)
   const lineas = porLinea(detalles)
+  const clientes = porCliente(detalles)
+  const tiposCliente = porTipoCliente(detalles).map((t) => ({ linea: TIPO_CLIENTE_LABEL[t.tipo_cliente], importe: t.importe }))
   const matriz = agregarPorProductoMes(detalles)
   const totalAnio = meses.reduce((a, b) => a + b, 0)
   const alertas = detalles.filter((d) => d.alerta_precio)
@@ -175,6 +180,24 @@ export default async function VentasPage({
             </div>
           </div>
 
+          {/* 2.5 — Top clientes + nacional vs exportación */}
+          <div className="grid gap-5 xl:grid-cols-5">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 xl:col-span-3">
+              <TituloSeccion
+                titulo="Top clientes por importe acumulado"
+                subtitulo="Quién compra más — separado desde la Fase 1 (antes, exportación y público colapsaban en un solo cliente)."
+              />
+              <TablaTopClientes clientes={clientes} />
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 xl:col-span-2">
+              <TituloSeccion
+                titulo="Nacional vs. comercio exterior"
+                subtitulo="Participación de la facturación por tipo de cliente."
+              />
+              <GraficaDona lineas={tiposCliente} />
+            </div>
+          </div>
+
           {/* 3 — Comparativa valor vs volumen */}
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <TituloSeccion
@@ -225,7 +248,7 @@ export default async function VentasPage({
               </h2>
               {detalles.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-slate-400">
-                  Aún no hay ventas en {anio}. Importa CFDI o captura una venta.
+                  Aún no hay ventas en {anio}. <Link href="/ventas/captura" className="text-orange-700 hover:underline">Captura la primera</Link>.
                 </p>
               ) : (
                 <table className="w-full text-sm">
