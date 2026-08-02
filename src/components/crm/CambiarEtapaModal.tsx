@@ -132,9 +132,13 @@ export default function CambiarEtapaModal({
             {pideVinculo && (
               <div className="mt-3 space-y-2">
                 <p className={LABEL}>Cliente fiscal de la cuenta</p>
+                <p className="text-xs text-slate-500">
+                  Si es venta al público en general (sin RFC), usa &quot;Después&quot; — se registra
+                  como público en Ventas al capturar la venta, sin necesidad de RFC aquí.
+                </p>
                 <div className="flex flex-wrap gap-3 text-sm text-slate-700">
                   {([
-                    ['omitir', 'Después'],
+                    ['omitir', 'Después / público en general'],
                     ['vincular', 'Vincular existente'],
                     ['crear', 'Crear nuevo (RFC)'],
                   ] as const).map(([v, l]) => (

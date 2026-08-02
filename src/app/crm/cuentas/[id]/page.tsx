@@ -331,15 +331,23 @@ export default async function CuentaFichaPage({ params }: { params: { id: string
                             <p className="mt-0.5 text-xs italic text-rose-600">Motivo de pérdida: {o.motivo_perdida}</p>
                           )}
                         </div>
-                        {puedeEditar && (
-                          <OportunidadAcciones
-                            oportunidad={o}
-                            cuentaVinculada={cuenta.ventas_cliente_id !== null}
-                            clientesFiscales={clientesFiscales.map((c) => ({ id: c.id, rfc: c.rfc, nombre: c.nombre }))}
-                            productos={productos.map((p) => ({ id: p.id, nombre: p.nombre, linea: p.linea, unidad: p.unidad }))}
-                            miembros={miembros}
-                          />
-                        )}
+                        <div className="flex shrink-0 items-center gap-1">
+                          <a
+                            href={`/api/crm/oportunidades/${o.id}/cotizacion/pdf`}
+                            className="rounded-md px-2 py-1 text-xs font-medium text-orange-700 transition hover:bg-orange-50"
+                          >
+                            Cotización (PDF)
+                          </a>
+                          {puedeEditar && (
+                            <OportunidadAcciones
+                              oportunidad={o}
+                              cuentaVinculada={cuenta.ventas_cliente_id !== null}
+                              clientesFiscales={clientesFiscales.map((c) => ({ id: c.id, rfc: c.rfc, nombre: c.nombre }))}
+                              productos={productos.map((p) => ({ id: p.id, nombre: p.nombre, linea: p.linea, unidad: p.unidad }))}
+                              miembros={miembros}
+                            />
+                          )}
+                        </div>
                       </div>
                       {o.items.length > 0 && (
                         <table className="mt-2 w-full max-w-xl text-xs">

@@ -41,7 +41,12 @@ export async function POST(request: Request) {
     )
   }
 
-  // Al ganar, opcionalmente conectar la cuenta con el cliente fiscal.
+  // Al ganar, la cuenta YA es cliente — con RFC vinculado o sin él (venta al
+  // público en general también cuenta). El vínculo fiscal es opcional aparte.
+  if (etapa === 'ganado') {
+    await supabase.from('crm_cuenta').update({ tipo: 'cliente' }).eq('id', opp.cuenta_id)
+  }
+
   let ventasClienteId: string | null = null
   if (etapa === 'ganado' && body.ventas_cliente && typeof body.ventas_cliente === 'object') {
     const vc = body.ventas_cliente as Record<string, unknown>

@@ -228,6 +228,79 @@ export async function getCuentaDetalle(id: string): Promise<CuentaDetalle | null
   }
 }
 
+// ----------------------------------------------------------------------------
+// Datos para la cotización en PDF de una oportunidad (Fase 7). Un cliente
+// nuevo o "en general" también puede cotizarse: no depende de que la cuenta
+// ya tenga cliente fiscal (RFC) vinculado — eso pasa hasta que se gana.
+// ----------------------------------------------------------------------------
+export interface CotizacionData {
+  id: string
+  nombre: string
+  monto_estimado: number
+  fecha_cierre_estimada: string | null
+  notas: string | null
+  cuenta: { nombre: string; nombre_comercial: string | null; telefono: string | null; email: string | null; direccion: string | null }
+  contacto: { nombre: string; puesto: string | null } | null
+  items: OportunidadItemRow[]
+}
+
+export async function getOportunidadParaCotizacion(id: string): Promise<CotizacionData | null> {
+  const supabase = await createClient()
+  const { data: opp, error } = await supabase
+    .from('crm_oportunidad')
+    .select(
+      'id, nombre, monto_estimado, fecha_cierre_estimada, notas, cuenta_id,' +
+        ' cuenta:crm_cuenta(nombre, nombre_comercial, telefono, email, direccion)',
+    )
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!opp) return null
+
+  type CuentaEmbed = { nombre: string; nombre_comercial: string | null; telefono: string | null; email: string | null; direccion: string | null }
+  type OppRaw = {
+    id: string
+    nombre: string
+    monto_estimado: number
+    fecha_cierre_estimada: string | null
+    notas: string | null
+    cuenta_id: string
+    cuenta: Embebido<CuentaEmbed>
+  }
+  const oppRaw = opp as unknown as OppRaw
+  const cuenta = uno(oppRaw.cuenta)
+
+  const [itemsRes, contactoRes] = await Promise.all([
+    supabase
+      .from('crm_oportunidad_item')
+      .select('id, producto_id, cantidad, precio_objetivo, importe, producto:ventas_producto(nombre, linea, unidad)')
+      .eq('oportunidad_id', id),
+    supabase
+      .from('crm_contacto')
+      .select('nombre, puesto')
+      .eq('cuenta_id', oppRaw.cuenta_id)
+      .order('principal', { ascending: false })
+      .order('nombre')
+      .limit(1),
+  ])
+  if (itemsRes.error) throw new Error(itemsRes.error.message)
+  if (contactoRes.error) throw new Error(contactoRes.error.message)
+
+  type ItemRaw = Omit<OportunidadItemRow, 'producto'> & { producto: Embebido<{ nombre: string; linea: string; unidad: string }> }
+  const items = ((itemsRes.data ?? []) as unknown as ItemRaw[]).map((raw) => ({ ...raw, producto: uno(raw.producto) }))
+
+  return {
+    id: oppRaw.id,
+    nombre: oppRaw.nombre,
+    monto_estimado: Number(oppRaw.monto_estimado),
+    fecha_cierre_estimada: oppRaw.fecha_cierre_estimada,
+    notas: oppRaw.notas,
+    cuenta: cuenta ?? { nombre: '—', nombre_comercial: null, telefono: null, email: null, direccion: null },
+    contacto: contactoRes.data?.[0] ?? null,
+    items,
+  }
+}
+
 // Historial comercial REAL desde Ventas (fuente de verdad) para la ficha 360°.
 export async function getVentas360(clienteId: string): Promise<Ventas360 | null> {
   const supabase = await createClient()
