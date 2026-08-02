@@ -73,10 +73,10 @@ export default async function VentasPage({
           Tabulador
         </Link>
         <Link
-          href="/ventas/importar"
-          className="hidden whitespace-nowrap rounded-md border border-orange-600 px-3 py-1.5 text-sm font-medium text-orange-700 transition hover:bg-orange-50 sm:block"
+          href="/ventas/pedidos"
+          className="hidden whitespace-nowrap rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 sm:block"
         >
-          Importar CFDI
+          Ventas capturadas
         </Link>
         <Link
           href="/ventas/captura"

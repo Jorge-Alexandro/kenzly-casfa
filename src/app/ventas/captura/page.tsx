@@ -37,10 +37,12 @@ export default async function CapturaVentaPage() {
       <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-4">
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">Captura manual de venta</h1>
+            <h1 className="text-lg font-semibold text-slate-800">Nueva venta</h1>
             <p className="text-sm text-slate-500">
-              El precio se pre-carga del acuerdo con el cliente y se puede editar; si se desvía de
-              la tolerancia, la venta queda marcada. El inventario se descuenta al guardar.
+              Un cliente, uno o varios productos. El precio se pre-carga del acuerdo con el cliente
+              y se puede editar; si se desvía de la tolerancia, la línea queda marcada. El
+              inventario se descuenta al guardar. Los pagos y la factura se agregan después, desde
+              el detalle de la venta.
             </p>
           </div>
           <CapturaVenta

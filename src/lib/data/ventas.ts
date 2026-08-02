@@ -4,7 +4,13 @@
 import { createClient } from '@/lib/supabase/server'
 import type {
   ClienteVenta,
+  EstadoPedido,
+  FacturaPedido,
+  LineaPedido,
   OrigenVenta,
+  PagoPedido,
+  PedidoDetalle,
+  PedidoRow,
   ProductoVenta,
   StockRow,
   VentasProductoMes,
@@ -98,6 +104,141 @@ export async function getDetalles(anio: number): Promise<DetalleRow[]> {
     .order('fecha', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as DetalleRow[]
+}
+
+// ----------------------------------------------------------------------------
+// Pedidos (la venta capturada desde cero) + su cobranza — espejo de
+// getBoletasConCosto en Contabilidad: una fila trae anidados sus pagos y
+// facturas en un solo viaje.
+// ----------------------------------------------------------------------------
+interface PedidoConAnidados {
+  id: string
+  fecha: string
+  estado: EstadoPedido
+  notas: string | null
+  motivo_cancelacion: string | null
+  dias_credito: number
+  importe_pagado: number | string
+  cliente: { id: string; nombre: string; rfc: string } | { id: string; nombre: string; rfc: string }[] | null
+  ventas_detalle: { id: string; importe: number | string; alerta_precio: boolean }[] | null
+  ventas_pago: (Omit<PagoPedido, 'monto'> & { monto: number | string })[] | null
+  ventas_pedido_factura: (Omit<FacturaPedido, 'monto'> & { monto: number | string | null })[] | null
+}
+
+const unoDe = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
+
+export async function getPedidos(): Promise<PedidoRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ventas_pedido')
+    .select(
+      'id, fecha, estado, notas, motivo_cancelacion, dias_credito, importe_pagado,' +
+        ' cliente:ventas_cliente(id, nombre, rfc),' +
+        ' ventas_detalle(id, importe, alerta_precio),' +
+        ' ventas_pedido_factura(id)',
+    )
+    .order('fecha', { ascending: false })
+    .limit(2000)
+  if (error) throw new Error(error.message)
+
+  return ((data ?? []) as unknown as PedidoConAnidados[]).map((p) => {
+    const cliente = unoDe(p.cliente)
+    const lineas = p.ventas_detalle ?? []
+    return {
+      id: p.id,
+      cliente_id: cliente?.id ?? '',
+      cliente_nombre: cliente?.nombre ?? '—',
+      fecha: p.fecha,
+      estado: p.estado,
+      dias_credito: p.dias_credito,
+      total: lineas.reduce((s, l) => s + Number(l.importe), 0),
+      importe_pagado: Number(p.importe_pagado),
+      n_lineas: lineas.length,
+      n_facturas: (p.ventas_pedido_factura ?? []).length,
+    }
+  })
+}
+
+export async function getPedidoDetalle(id: string): Promise<PedidoDetalle | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ventas_pedido')
+    .select(
+      'id, fecha, estado, notas, motivo_cancelacion, dias_credito, importe_pagado,' +
+        ' cliente:ventas_cliente(id, nombre, rfc),' +
+        ' ventas_detalle(id, producto_id, cantidad, precio_unitario, importe, alerta_precio,' +
+        '   producto:ventas_producto(nombre, unidad)),' +
+        ' ventas_pago(id, fecha, monto, metodo, referencia, observaciones),' +
+        ' ventas_pedido_factura(id, folio, fecha, monto, uuid_fiscal, observaciones)',
+    )
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  interface DetalleAnidado {
+    id: string
+    producto_id: string
+    cantidad: number | string
+    precio_unitario: number | string
+    importe: number | string
+    alerta_precio: boolean
+    producto: { nombre: string; unidad: string } | { nombre: string; unidad: string }[] | null
+  }
+
+  interface PedidoDetalleCrudo {
+    id: string
+    fecha: string
+    estado: EstadoPedido
+    notas: string | null
+    motivo_cancelacion: string | null
+    dias_credito: number
+    importe_pagado: number | string
+    cliente: { id: string; nombre: string; rfc: string } | { id: string; nombre: string; rfc: string }[] | null
+    ventas_detalle: DetalleAnidado[] | null
+    ventas_pago: (Omit<PagoPedido, 'monto'> & { monto: number | string })[] | null
+    ventas_pedido_factura: (Omit<FacturaPedido, 'monto'> & { monto: number | string | null })[] | null
+  }
+
+  const p = data as unknown as PedidoDetalleCrudo
+  const cliente = unoDe(p.cliente)
+
+  const lineas: LineaPedido[] = (p.ventas_detalle ?? []).map((d) => {
+    const prod = unoDe(d.producto)
+    return {
+      id: d.id,
+      producto_id: d.producto_id,
+      producto_nombre: prod?.nombre ?? '—',
+      producto_unidad: prod?.unidad ?? '',
+      cantidad: Number(d.cantidad),
+      precio_unitario: Number(d.precio_unitario),
+      importe: Number(d.importe),
+      alerta_precio: d.alerta_precio,
+    }
+  })
+
+  const pagos: PagoPedido[] = (p.ventas_pago ?? [])
+    .map((x) => ({ ...x, monto: Number(x.monto) }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+
+  const facturas: FacturaPedido[] = (p.ventas_pedido_factura ?? []).map((x) => ({
+    ...x,
+    monto: x.monto == null ? null : Number(x.monto),
+  }))
+
+  return {
+    id: p.id,
+    cliente: cliente ?? { id: '', nombre: '—', rfc: '' },
+    fecha: p.fecha,
+    estado: p.estado,
+    notas: p.notas,
+    motivo_cancelacion: p.motivo_cancelacion,
+    dias_credito: p.dias_credito,
+    importe_pagado: Number(p.importe_pagado),
+    lineas,
+    pagos,
+    facturas,
+  }
 }
 
 // ----------------------------------------------------------------------------

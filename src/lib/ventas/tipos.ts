@@ -111,6 +111,104 @@ export function gramajeDelNombre(nombre: string): number | null {
   return /^k/i.test(unidad) ? valor : valor / 1000
 }
 
+// ----------------------------------------------------------------------------
+// Pedido/venta capturado desde cero (Diego/Liz) — espejo de Contabilidad
+// (entrada_pago/entrada_factura). El pedido + sus líneas son el evento real
+// que descuenta inventario; pagos y facturas son evidencia aparte que nunca
+// vuelve a tocar el stock (ver migración 0053_ventas_pedidos.sql).
+// ----------------------------------------------------------------------------
+export type EstadoPedido = 'abierta' | 'cancelada'
+
+export const METODOS_PAGO_VENTA = ['Efectivo', 'Transferencia', 'Cheque', 'Depósito'] as const
+
+export interface PedidoRow {
+  id: string
+  cliente_id: string
+  cliente_nombre: string
+  fecha: string
+  estado: EstadoPedido
+  dias_credito: number
+  total: number
+  importe_pagado: number
+  n_lineas: number
+  n_facturas: number
+}
+
+export interface LineaPedido {
+  id: string
+  producto_id: string
+  producto_nombre: string
+  producto_unidad: string
+  cantidad: number
+  precio_unitario: number
+  importe: number
+  alerta_precio: boolean
+}
+
+export interface PagoPedido {
+  id: string
+  fecha: string
+  monto: number
+  metodo: string | null
+  referencia: string | null
+  observaciones: string | null
+}
+
+export interface FacturaPedido {
+  id: string
+  folio: string
+  fecha: string | null
+  monto: number | null
+  uuid_fiscal: string | null
+  observaciones: string | null
+}
+
+export interface PedidoDetalle {
+  id: string
+  cliente: { id: string; nombre: string; rfc: string }
+  fecha: string
+  estado: EstadoPedido
+  notas: string | null
+  motivo_cancelacion: string | null
+  dias_credito: number
+  importe_pagado: number
+  lineas: LineaPedido[]
+  pagos: PagoPedido[]
+  facturas: FacturaPedido[]
+}
+
+// Semáforo de cobranza: "amarillo" 10 días antes del límite de crédito
+// (día 20 con el default de 30), "rojo/moroso" al cumplirse. Pura función de
+// fecha+saldo — nada que sincronizar, se recalcula sola en cada vista.
+export type EstadoCobranza = 'pagado' | 'al_corriente' | 'por_vencer' | 'moroso'
+
+export const COBRANZA_LABEL: Record<EstadoCobranza, string> = {
+  pagado: 'Pagado',
+  al_corriente: 'Al corriente',
+  por_vencer: 'Por vencer',
+  moroso: 'Moroso',
+}
+
+export const COBRANZA_BADGE: Record<EstadoCobranza, string> = {
+  pagado: 'bg-emerald-50 text-emerald-700',
+  al_corriente: 'bg-slate-100 text-slate-600',
+  por_vencer: 'bg-amber-50 text-amber-700',
+  moroso: 'bg-rose-50 text-rose-700',
+}
+
+export function diasTranscurridos(fechaISO: string): number {
+  const inicio = new Date(`${fechaISO}T00:00:00`).getTime()
+  return Math.floor((Date.now() - inicio) / 86_400_000)
+}
+
+export function estadoCobranza(p: { fecha: string; dias_credito: number; total: number; importe_pagado: number }): EstadoCobranza {
+  if (p.total - p.importe_pagado <= 0.005) return 'pagado'
+  const dias = diasTranscurridos(p.fecha)
+  if (dias >= p.dias_credito) return 'moroso'
+  if (dias >= p.dias_credito - 10) return 'por_vencer'
+  return 'al_corriente'
+}
+
 export function formatoMXN(n: number): string {
   return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
 }
