@@ -265,9 +265,16 @@ Ordenadas por dependencia: cada una deja el sistema utilizable.
 
 ## 4. Fuera de alcance por ahora
 
-Salieron en la reunión pero no son de este módulo:
+**Actualización 2026-08-03:** "Requisiciones digitales en PDF" ya SÍ se construyó
+— CASFA proporcionó el formato real (`Formato de Requisicion.xlsx`) y la Tabla
+de Equivalencias oficial (confirma exactamente el `kg_por_unidad` ya cargado en
+la Fase 3). Ver `/ventas/requisiciones`: orden interna de producción para
+torrefacción (producto, cantidad, kg equivalente — sin costos, el viejo formato
+tenía columnas de costo confusas y sin usar), folio consecutivo, PDF con firmas
+Solicitó/Autorizó/Entregó, no descuenta inventario.
 
-- **Requisiciones digitales en PDF** para Toño/producción (es de Producción).
+Salieron en la reunión pero siguen sin ser de este módulo:
+
 - **Computadora/escáner en planta** (compra, no software).
 - **Nombres comerciales de los cafés** (Iguana Sana, Solkín, a granel) —
   pendiente de la plática con Claudio; el catálogo de productos ya soporta el
