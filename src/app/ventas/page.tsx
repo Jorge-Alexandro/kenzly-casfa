@@ -84,6 +84,12 @@ export default async function VentasPage({
           Ventas capturadas
         </Link>
         <Link
+          href="/ventas/requisiciones"
+          className="hidden whitespace-nowrap rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 sm:block"
+        >
+          Requisiciones
+        </Link>
+        <Link
           href="/ventas/captura"
           className="whitespace-nowrap rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-orange-700"
         >

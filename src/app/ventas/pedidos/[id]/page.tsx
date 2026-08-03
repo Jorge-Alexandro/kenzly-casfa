@@ -30,6 +30,14 @@ export default async function PedidoDetallePage({ params }: { params: Promise<{ 
         <Link href="/ventas/pedidos" className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
           ← Ventas capturadas
         </Link>
+        {pedido.estado === 'abierta' && (
+          <Link
+            href={`/ventas/requisiciones/nueva?pedido_id=${pedido.id}`}
+            className="rounded-md border border-orange-600 px-3 py-1.5 text-sm font-medium text-orange-700 transition hover:bg-orange-50"
+          >
+            Generar requisición
+          </Link>
+        )}
       </AppHeader>
 
       <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">

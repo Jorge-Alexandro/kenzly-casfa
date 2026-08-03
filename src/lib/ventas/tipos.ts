@@ -256,6 +256,43 @@ export interface MovimientoRow {
   motivo: string | null
 }
 
+// ----------------------------------------------------------------------------
+// Requisiciones — la orden interna de producción para torrefacción: qué y
+// cuánto hay que preparar. No descuenta inventario (es papeleo); el stock ya
+// lo gobiernan la venta capturada y los movimientos.
+// ----------------------------------------------------------------------------
+export interface RequisicionItem {
+  id: string
+  producto_id: string
+  producto_nombre: string
+  producto_unidad: string
+  cantidad: number
+  kg_equivalente: number
+}
+
+export interface RequisicionRow {
+  id: string
+  folio: number
+  fecha: string
+  cliente_nombre: string | null
+  cliente_texto: string | null
+  n_items: number
+  total_kg: number
+}
+
+export interface RequisicionDetalle {
+  id: string
+  folio: number
+  fecha: string
+  cliente_nombre: string | null
+  cliente_texto: string | null
+  solicito: string | null
+  autorizo: string | null
+  entrego: string | null
+  notas: string | null
+  items: RequisicionItem[]
+}
+
 export function formatoMXN(n: number): string {
   return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
 }

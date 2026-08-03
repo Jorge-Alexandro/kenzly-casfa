@@ -13,6 +13,9 @@ import type {
   PedidoDetalle,
   PedidoRow,
   ProductoVenta,
+  RequisicionDetalle,
+  RequisicionItem,
+  RequisicionRow,
   StockRow,
   TipoCliente,
   TipoMovimiento,
@@ -398,4 +401,116 @@ export async function getMovimientos(): Promise<MovimientoRow[]> {
       motivo: m.motivo,
     }
   })
+}
+
+// ----------------------------------------------------------------------------
+// Requisiciones — orden interna de producción para torrefacción. No toca
+// inventario; kg_equivalente sale de ventas_producto.kg_por_unidad (Fase 3,
+// ya validado contra la Tabla de Equivalencias real).
+// ----------------------------------------------------------------------------
+interface RequisicionItemCrudo {
+  id: string
+  producto_id: string
+  cantidad: number | string
+  producto: { nombre: string; unidad: string; kg_por_unidad: number | string } | { nombre: string; unidad: string; kg_por_unidad: number | string }[] | null
+}
+
+function mapItems(raw: RequisicionItemCrudo[]): RequisicionItem[] {
+  return raw.map((it) => {
+    const producto = unoDe(it.producto)
+    const kgPorUnidad = Number(producto?.kg_por_unidad ?? 1)
+    const cantidad = Number(it.cantidad)
+    return {
+      id: it.id,
+      producto_id: it.producto_id,
+      producto_nombre: producto?.nombre ?? '—',
+      producto_unidad: producto?.unidad ?? '',
+      cantidad,
+      kg_equivalente: Math.round(cantidad * kgPorUnidad * 1000) / 1000,
+    }
+  })
+}
+
+export async function getRequisiciones(): Promise<RequisicionRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ventas_requisicion')
+    .select(
+      'id, folio, fecha, cliente_texto,' +
+        ' cliente:ventas_cliente(nombre),' +
+        ' ventas_requisicion_item(id, cantidad, producto:ventas_producto(kg_por_unidad))',
+    )
+    .order('folio', { ascending: false })
+    .limit(1000)
+  if (error) throw new Error(error.message)
+
+  interface Raw {
+    id: string
+    folio: number
+    fecha: string
+    cliente_texto: string | null
+    cliente: { nombre: string } | { nombre: string }[] | null
+    ventas_requisicion_item: { id: string; cantidad: number | string; producto: { kg_por_unidad: number | string } | { kg_por_unidad: number | string }[] | null }[] | null
+  }
+
+  return ((data ?? []) as unknown as Raw[]).map((r) => {
+    const cliente = unoDe(r.cliente)
+    const items = r.ventas_requisicion_item ?? []
+    const totalKg = items.reduce((s, it) => {
+      const prod = unoDe(it.producto)
+      return s + Number(it.cantidad) * Number(prod?.kg_por_unidad ?? 1)
+    }, 0)
+    return {
+      id: r.id,
+      folio: r.folio,
+      fecha: r.fecha,
+      cliente_nombre: cliente?.nombre ?? null,
+      cliente_texto: r.cliente_texto,
+      n_items: items.length,
+      total_kg: Math.round(totalKg * 1000) / 1000,
+    }
+  })
+}
+
+export async function getRequisicionDetalle(id: string): Promise<RequisicionDetalle | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ventas_requisicion')
+    .select(
+      'id, folio, fecha, cliente_texto, solicito, autorizo, entrego, notas,' +
+        ' cliente:ventas_cliente(nombre),' +
+        ' ventas_requisicion_item(id, producto_id, cantidad, producto:ventas_producto(nombre, unidad, kg_por_unidad))',
+    )
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  interface Raw {
+    id: string
+    folio: number
+    fecha: string
+    cliente_texto: string | null
+    solicito: string | null
+    autorizo: string | null
+    entrego: string | null
+    notas: string | null
+    cliente: { nombre: string } | { nombre: string }[] | null
+    ventas_requisicion_item: RequisicionItemCrudo[] | null
+  }
+  const r = data as unknown as Raw
+  const cliente = unoDe(r.cliente)
+
+  return {
+    id: r.id,
+    folio: r.folio,
+    fecha: r.fecha,
+    cliente_nombre: cliente?.nombre ?? null,
+    cliente_texto: r.cliente_texto,
+    solicito: r.solicito,
+    autorizo: r.autorizo,
+    entrego: r.entrego,
+    notas: r.notas,
+    items: mapItems(r.ventas_requisicion_item ?? []),
+  }
 }
