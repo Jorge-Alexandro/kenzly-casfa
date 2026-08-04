@@ -129,9 +129,6 @@ export default function BitacoraEditor({
     }
   }
 
-  const manejo = datos.actividades.filter((a) => a.grupo === 'manejo')
-  const cosecha = datos.actividades.filter((a) => a.grupo === 'cosecha')
-
   return (
     <div className="mx-auto max-w-6xl p-6">
       {/* Encabezado: parcela + año */}
@@ -181,17 +178,11 @@ export default function BitacoraEditor({
         </p>
       )}
 
-      {/* Manejo en campo (sin título, a pedido del SIC) */}
+      {/* Una sola tabla con las 11 actividades (manejo + cosecha): en el fondo
+          son lo mismo, actividad contra mes, y así es como está en el formato
+          original de CASFA — no dos tablas separadas. */}
       <GridActividades
-        actividades={manejo}
-        onMarca={toggleMarca}
-        onActividad={setActividad}
-      />
-
-      {/* Actividades de cosecha (incluye "Fecha de cosecha", fila 10 del
-          formato original — se marca en el mismo calendario, no aparte). */}
-      <GridActividades
-        actividades={cosecha}
+        actividades={datos.actividades}
         onMarca={toggleMarca}
         onActividad={setActividad}
       />

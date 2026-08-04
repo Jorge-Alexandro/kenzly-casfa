@@ -29,9 +29,6 @@ export default function BitacoraReport({
   comunidad,
   esCafe,
 }: Props) {
-  const manejo = datos.actividades.filter((a) => a.grupo === 'manejo')
-  const cosecha = datos.actividades.filter((a) => a.grupo === 'cosecha')
-
   return (
     <div className="min-h-0 flex-1 overflow-auto bg-slate-100">
       <div className="no-print sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
@@ -61,8 +58,9 @@ export default function BitacoraReport({
           {comunidad ? ` · Comunidad: ${comunidad}` : ''}
         </p>
 
-        <TablaActividades titulo="Manejo en campo" actividades={manejo} />
-        <TablaActividades titulo="Actividades de cosecha" actividades={cosecha} />
+        {/* Una sola tabla, como en el formato original: actividad contra mes,
+            sin partir "manejo" y "cosecha" en dos calendarios separados. */}
+        <TablaActividades actividades={datos.actividades} />
 
         {/* LEGADO: solo aparece si la bitácora se capturó con el formulario
             viejo de cosecha por especie (antes de que "Fecha de cosecha" se
@@ -144,12 +142,12 @@ function TablaActividades({
   titulo,
   actividades,
 }: {
-  titulo: string
+  titulo?: string
   actividades: BitacoraActividad[]
 }) {
   return (
     <div className="report-section mb-3">
-      <h2 className="mb-1 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">{titulo}</h2>
+      {titulo && <h2 className="mb-1 bg-slate-100 px-2 py-1 text-xs font-bold uppercase">{titulo}</h2>}
       <table className="w-full border-collapse text-[10px]">
         <thead>
           <tr>
