@@ -207,6 +207,17 @@ export default function FichaReport({
           <CriterioSection key={sec.id} seccion={sec} respuesta={r} parcelas={parcelas} />
         ))}
 
+        {/* Anexos (bitácora e historial) van AQUÍ, en el lugar de la sección
+            "12. Bitácora" del formato original — antes de "13. Resultados de
+            la evaluación" y de las firmas, no después. Un documento firmado
+            no debería llevar anexos colgando después de la firma. */}
+        {data.bitacora && (
+          <BitacoraAnexo datos={normalizarDatos(data.bitacora.datos as never)} anio={data.bitacora.anio} />
+        )}
+        {data.historial && data.historial.anios.length > 0 && (
+          <HistorialAnexo anios={data.historial.anios} />
+        )}
+
         {/* Evaluation + declaration block (data-driven from the eval section:
             Robusta uses a single 'hallazgos'; Arabe/Tropicales use hallazgo_1..5). */}
         {evalSeccion && (
@@ -268,15 +279,6 @@ export default function FichaReport({
           </>
         )}
 
-        {/* Anexo: bitácora vinculada a la ficha */}
-        {data.bitacora && (
-          <BitacoraAnexo datos={normalizarDatos(data.bitacora.datos as never)} anio={data.bitacora.anio} />
-        )}
-
-        {/* Anexo: historial de manejo de la parcela */}
-        {data.historial && data.historial.anios.length > 0 && (
-          <HistorialAnexo anios={data.historial.anios} />
-        )}
       </div>
     </div>
   )
