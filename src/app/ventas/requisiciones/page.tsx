@@ -7,6 +7,7 @@ import { getRequisiciones } from '@/lib/data/ventas'
 import { formatoNum } from '@/lib/ventas/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
+import BotonBorrar from '@/components/ventas/BotonBorrar'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,13 +59,19 @@ export default async function RequisicionesPage() {
                     <td className="px-3 py-2 text-slate-700">{r.cliente_nombre ?? r.cliente_texto ?? '—'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-slate-600">{r.n_items}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-slate-700">{formatoNum(r.total_kg, 2)} kg</td>
-                    <td className="px-3 py-2 text-right">
-                      <a
-                        href={`/api/ventas/requisiciones/${r.id}/pdf`}
-                        className="text-xs font-medium text-orange-700 hover:underline"
-                      >
-                        PDF ↓
-                      </a>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-3">
+                        <a
+                          href={`/api/ventas/requisiciones/${r.id}/pdf`}
+                          className="text-xs font-medium text-orange-700 hover:underline"
+                        >
+                          PDF ↓
+                        </a>
+                        <BotonBorrar
+                          url={`/api/ventas/requisiciones/${r.id}`}
+                          descripcion={`la requisición ${String(r.folio).padStart(4, '0')} del ${r.fecha}`}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

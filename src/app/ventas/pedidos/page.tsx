@@ -9,6 +9,7 @@ import { getPedidos } from '@/lib/data/ventas'
 import { formatoMXN, estadoCobranza, COBRANZA_LABEL, COBRANZA_BADGE } from '@/lib/ventas/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
+import BotonBorrar from '@/components/ventas/BotonBorrar'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,10 +100,17 @@ export default async function PedidosPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <Link href={`/ventas/pedidos/${p.id}`} className="text-xs font-medium text-orange-700 hover:underline">
-                          Ver
-                        </Link>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-3">
+                          <Link href={`/ventas/pedidos/${p.id}`} className="text-xs font-medium text-orange-700 hover:underline">
+                            Ver
+                          </Link>
+                          <BotonBorrar
+                            url={`/api/ventas/pedidos/${p.id}`}
+                            descripcion={`la venta de ${p.cliente_nombre} del ${p.fecha} por ${formatoMXN(p.total)}`}
+                            advertencia="Se borran también sus pagos y facturas, y el inventario se repone."
+                          />
+                        </div>
                       </td>
                     </tr>
                   )
