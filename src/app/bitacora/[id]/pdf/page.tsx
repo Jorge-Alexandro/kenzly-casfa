@@ -24,6 +24,7 @@ export default async function BitacoraPdfPage({
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <BitacoraReport
         anio={b.anio}
+        folio={b.folio}
         datos={b.datos}
         parcelaLabel={label}
         productor={b.productor_nombre}

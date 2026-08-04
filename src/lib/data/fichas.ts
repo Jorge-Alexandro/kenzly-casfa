@@ -167,7 +167,7 @@ export async function getFichaDetalle(
   const { data: ficha, error: fErr } = await supabase
     .from('fichas')
     .select(
-      `id, tipo, estado, fecha_inspeccion, area_cultivada_ha, resultado_evaluacion,
+      `id, folio, tipo, estado, fecha_inspeccion, area_cultivada_ha, resultado_evaluacion,
        created_at, respuestas, template_id, inspector_id, productor_id, anulada_motivo,
        productores ( nombre_completo, codigo, comunidad, municipio ),
        ficha_parcelas ( parcelas ( id, codigo_parcela, nombre, superficie_declarada_ha ) )`,
@@ -250,6 +250,7 @@ export async function getFichaDetalle(
   return {
     ficha: {
       id: ficha.id,
+      folio: ficha.folio ?? null,
       tipo: ficha.tipo,
       estado: ficha.estado,
       fecha_inspeccion: ficha.fecha_inspeccion,
@@ -283,7 +284,7 @@ export async function getFichas(): Promise<FichaListRow[]> {
   const { data, error } = await supabase
     .from('fichas')
     .select(
-      `id, tipo, estado, fecha_inspeccion, area_cultivada_ha, created_at,
+      `id, folio, tipo, estado, fecha_inspeccion, area_cultivada_ha, created_at,
        productores ( nombre_completo, codigo ),
        ficha_parcelas ( id )`,
     )
@@ -295,6 +296,7 @@ export async function getFichas(): Promise<FichaListRow[]> {
     const prod = Array.isArray(f.productores) ? f.productores[0] : f.productores
     return {
       id: f.id,
+      folio: f.folio ?? null,
       tipo: f.tipo,
       estado: f.estado,
       fecha_inspeccion: f.fecha_inspeccion,

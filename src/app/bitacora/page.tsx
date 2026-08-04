@@ -39,6 +39,7 @@ export default async function BitacoraPage() {
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
+                    <th className="px-4 py-2.5 font-medium">Folio</th>
                     <th className="px-4 py-2.5 font-medium">Parcela</th>
                     <th className="px-4 py-2.5 font-medium">Productor</th>
                     <th className="px-4 py-2.5 text-right font-medium">Año</th>
@@ -48,6 +49,9 @@ export default async function BitacoraPage() {
                 <tbody>
                   {bitacoras.map((b) => (
                     <tr key={b.id} className="border-t border-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-2.5 tabular-nums text-slate-500">
+                        {b.folio != null ? `#${b.folio}` : '—'}
+                      </td>
                       <td className="px-4 py-2.5">
                         <div className="font-medium text-slate-800">
                           {b.parcela_nombre || b.parcela_codigo}

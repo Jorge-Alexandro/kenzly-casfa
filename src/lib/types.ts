@@ -321,6 +321,7 @@ export interface ParcelaLite {
 // A saved ficha row (list view)
 export interface FichaListRow {
   id: string
+  folio: number | null
   tipo: TipoFicha
   estado: EstadoFicha
   fecha_inspeccion: string | null
@@ -335,6 +336,7 @@ export interface FichaListRow {
 export interface FichaDetalle {
   ficha: {
     id: string
+    folio: number | null
     tipo: TipoFicha
     estado: EstadoFicha
     fecha_inspeccion: string | null

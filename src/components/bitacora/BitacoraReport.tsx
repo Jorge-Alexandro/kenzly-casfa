@@ -13,6 +13,7 @@ function tieneCosechaLegado(datos: BitacoraDatos): boolean {
 
 interface Props {
   anio: number
+  folio: number | null
   datos: BitacoraDatos
   parcelaLabel: string
   productor: string
@@ -23,6 +24,7 @@ interface Props {
 
 export default function BitacoraReport({
   anio,
+  folio,
   datos,
   parcelaLabel,
   productor,
@@ -54,6 +56,7 @@ export default function BitacoraReport({
           Bitácora de actividades {anio}
         </h1>
         <p className="mb-4 text-center text-xs text-slate-600">
+          {folio != null && <>Folio #{folio} — </>}
           {parcelaLabel} — Productor: {productor}
           {comunidad ? ` · Comunidad: ${comunidad}` : ''}
         </p>

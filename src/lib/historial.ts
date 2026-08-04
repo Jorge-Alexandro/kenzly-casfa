@@ -58,6 +58,7 @@ export type HistorialAnioDatos = Record<string, string | number | null | string[
 
 export interface HistorialAnio {
   id: string // id de la fila historial_manejo_anual (vacío si es nuevo, sin guardar)
+  folio: number | null
   anio: number
   datos: HistorialAnioDatos
 }
@@ -65,7 +66,7 @@ export interface HistorialAnio {
 export function anioVacio(anio: number): HistorialAnio {
   const datos: HistorialAnioDatos = {}
   for (const c of HISTORIAL_CAMPOS) datos[c.id] = c.multiple ? [] : null
-  return { id: '', anio, datos }
+  return { id: '', folio: null, anio, datos }
 }
 
 /** Texto para imprimir el valor de una celda (los reportes en PDF lo usan). */

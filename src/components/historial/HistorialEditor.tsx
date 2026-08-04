@@ -176,6 +176,11 @@ export default function HistorialEditor({
                       ✕
                     </button>
                   </div>
+                  {a.folio != null && (
+                    <div className="mt-0.5 text-[10px] font-normal text-slate-400">
+                      Folio #{a.folio}
+                    </div>
+                  )}
                 </th>
               ))}
             </tr>

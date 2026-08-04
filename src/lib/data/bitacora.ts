@@ -4,6 +4,7 @@ import { normalizarDatos, type BitacoraAnual } from '@/lib/bitacora'
 
 export interface BitacoraListRow {
   id: string
+  folio: number | null
   parcela_id: string
   anio: number
   parcela_codigo: string
@@ -17,7 +18,7 @@ export async function getBitacoras(): Promise<BitacoraListRow[]> {
   const { data, error } = await supabase
     .from('bitacora_anual')
     .select(
-      `id, parcela_id, anio,
+      `id, folio, parcela_id, anio,
        parcelas ( codigo_parcela, nombre, productores ( nombre_completo ) )`,
     )
     .order('anio', { ascending: false })
@@ -33,6 +34,7 @@ export async function getBitacoras(): Promise<BitacoraListRow[]> {
       : null
     return {
       id: b.id,
+      folio: b.folio ?? null,
       parcela_id: b.parcela_id,
       anio: b.anio,
       parcela_codigo: parcela?.codigo_parcela ?? '',
@@ -45,6 +47,7 @@ export async function getBitacoras(): Promise<BitacoraListRow[]> {
 // One bitácora (normalized grid). Returns null if not found.
 export async function getBitacora(id: string): Promise<
   (BitacoraAnual & {
+    folio: number | null
     parcela_codigo: string
     parcela_nombre: string | null
     productor_nombre: string
@@ -56,7 +59,7 @@ export async function getBitacora(id: string): Promise<
   const { data, error } = await supabase
     .from('bitacora_anual')
     .select(
-      `id, parcela_id, anio, datos,
+      `id, folio, parcela_id, anio, datos,
        parcelas ( codigo_parcela, nombre, comunidad, tipo_cultivo, productores ( nombre_completo ) )`,
     )
     .eq('id', id)
@@ -74,6 +77,7 @@ export async function getBitacora(id: string): Promise<
 
   return {
     id: data.id,
+    folio: data.folio ?? null,
     parcela_id: data.parcela_id,
     anio: data.anio,
     datos: normalizarDatos(data.datos),

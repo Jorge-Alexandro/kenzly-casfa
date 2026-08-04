@@ -80,13 +80,14 @@ export async function getHistorialParcela(
 
   const { data: rows, error: hErr } = await supabase
     .from('historial_manejo_anual')
-    .select('id, anio, datos')
+    .select('id, folio, anio, datos')
     .eq('parcela_id', parcelaId)
     .order('anio', { ascending: true })
   if (hErr) throw new Error(`getHistorialParcela (historial): ${hErr.message}`)
 
   const anios: HistorialAnio[] = (rows ?? []).map((r) => ({
     id: r.id,
+    folio: r.folio ?? null,
     anio: r.anio,
     datos: (r.datos ?? {}) as HistorialAnio['datos'],
   }))

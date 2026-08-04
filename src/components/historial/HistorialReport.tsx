@@ -58,6 +58,9 @@ export default function HistorialReport({
               {cols.map((a) => (
                 <th key={a.anio} className="border border-slate-300 bg-slate-50 p-1.5 text-center">
                   {a.anio}
+                  {a.folio != null && (
+                    <div className="text-[9px] font-normal text-slate-400">Folio #{a.folio}</div>
+                  )}
                 </th>
               ))}
             </tr>

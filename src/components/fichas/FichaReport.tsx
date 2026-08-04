@@ -100,10 +100,10 @@ export default function FichaReport({
           </p>
         </header>
 
-        {/* ID + estado strip */}
+        {/* Folio + estado strip */}
         <div className="mb-4 flex justify-between border-y border-slate-300 py-1 text-xs">
           <span>
-            <strong>ID:</strong> {ficha.id.slice(0, 8)}
+            <strong>Folio:</strong> {ficha.folio != null ? `#${ficha.folio}` : ficha.id.slice(0, 8)}
           </span>
           <span>
             <strong>Estado:</strong> {ESTADO_FICHA_LABEL[ficha.estado]}
