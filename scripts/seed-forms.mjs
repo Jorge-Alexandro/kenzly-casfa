@@ -42,13 +42,17 @@ const VIVERO_COLS = [
   { id: 'variedad', label: 'Variedad', tipo: 'text' },
   { id: 'cantidad', label: 'Cantidad de plantas', tipo: 'number' },
 ]
-// Producción POR variedad (CHESPAL): si el inspector captura varias variedades,
-// cada una lleva su producción anterior y actual en la misma tabla, en quintales
-// y en café uva (cereza, kg) — como se recibe en el acopio.
+// Producción POR variedad (CHESPAL): si el inspector captura varias variedades
+// en la misma parcela (típico en Finca Chula Vista: árabe y robusta juntos),
+// cada una lleva su producción anterior y actual en la misma tabla. La unidad
+// NO es fija: árabe se reporta en quintales y robusta en kilogramos, así que
+// el inspector la marca por fila en vez de que la etiqueta de la columna la dé
+// por sentada (antes decía "(qq)" para las dos, lo cual era falso para robusta).
 const VARIEDADES_COLS_PROD = [
   ...VARIEDADES_COLS,
-  { id: 'prod_anterior_qq', label: 'Prod. anterior (qq)', tipo: 'number' },
-  { id: 'prod_actual_qq', label: 'Prod. actual (qq)', tipo: 'number' },
+  { id: 'prod_anterior', label: 'Prod. anterior', tipo: 'number' },
+  { id: 'prod_actual', label: 'Prod. actual', tipo: 'number' },
+  { id: 'unidad_prod', label: 'Unidad', tipo: 'enum', opciones: ['QQ', 'KG'] },
   { id: 'prod_anterior_uva_kg', label: 'Prod. anterior (uva, kg)', tipo: 'number' },
   { id: 'prod_actual_uva_kg', label: 'Prod. actual (uva, kg)', tipo: 'number' },
 ]
@@ -125,9 +129,10 @@ const ROBUSTA = {
     {
       nombre: '2. Información de la parcela',
       campos: [
+        // "Producción anterior/actual" ya no van sueltas: se preguntan por
+        // variedad en la tabla de arriba (cada fila lleva su propia unidad),
+        // para no volver a capturar lo mismo dos veces.
         f('variedades', 'Variedades, marco de plantación y producción por variedad', 'tabla', null, { columnas: VARIEDADES_COLS_PROD }),
-        f('produccion_anterior', 'Producción anterior cosechada (qq)', 'number', null, { autofill: 'produccion_anterior', convertidor: 'qq' }),
-        f('produccion_actual', 'Producción actual (qq)', 'number', null, { autofill: 'produccion_actual', convertidor: 'qq' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
       ],
     },
@@ -419,10 +424,9 @@ const ARABE = {
       nombre: '2. Información de la parcela',
       campos: [
         f('estatus_parcela', 'Estatus de la parcela', 'text'),
-        // Árabe: producción POR variedad en la tabla (CHESPAL).
+        // Árabe: producción POR variedad en la tabla (CHESPAL); igual que en
+        // Robusta, ya no se repite suelta abajo.
         f('variedades', 'Variedades, marco de plantación y producción por variedad', 'tabla', null, { columnas: VARIEDADES_COLS_ARABE }),
-        f('produccion_anterior_kg', 'Producción anterior cosechada (kg)', 'number', null, { autofill: 'produccion_anterior', convertidor: 'kg' }),
-        f('produccion_actual_kg', 'Producción actual (kg)', 'number', null, { autofill: 'produccion_actual', convertidor: 'kg' }),
         f('observaciones_parcela', 'Observaciones', 'longtext'),
       ],
     },

@@ -984,6 +984,19 @@ function TablaField({
                         ? Number(fila[c.id]).toFixed(2)
                         : '—'}
                     </span>
+                  ) : c.tipo === 'enum' ? (
+                    <select
+                      value={(fila[c.id] as string) ?? ''}
+                      onChange={(e) => setCelda(i, c.id, e.target.value || null)}
+                      className="w-full min-w-[70px] rounded border border-slate-200 px-1.5 py-1 outline-none focus:border-orange-400"
+                    >
+                      <option value="">—</option>
+                      {(c.opciones ?? []).map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
                     <input
                       type={c.tipo === 'number' ? 'number' : 'text'}

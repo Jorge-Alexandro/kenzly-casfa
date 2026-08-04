@@ -375,8 +375,9 @@ function BitacoraAnexo({
   )
 }
 
-// Coordenadas caminadas en la inspección. Es lo que respalda el polígono ante
-// una auditoría: sin la lista de vértices, el mapa es un dibujo sin origen.
+// Constancia de que se caminó el polígono en la inspección — sin desplegar la
+// lista de coordenadas (el detalle vive en GeoSIC; aquí solo se deja rastro de
+// que el levantamiento ocurrió, para no saturar el documento impreso).
 function PuntosGpsBloque({
   respuestas,
   parcelas,
@@ -390,38 +391,13 @@ function PuntosGpsBloque({
   if (conPuntos.length === 0) return null
 
   return (
-    <div className="report-section mb-4">
-      <SectionTitle>Coordenadas levantadas en campo (GPS)</SectionTitle>
+    <div className="report-section mb-2 text-xs text-slate-600">
       {conPuntos.map(({ parcela, puntos }) => (
-        <div key={parcela.id} className="mb-3">
-          <p className="mb-1 text-xs font-semibold text-slate-700">
-            Parcela: {codigoCorto(parcela.codigo_parcela, parcela.nombre)}
-            {parcela.nombre ? ` — ${parcela.nombre}` : ''} · {puntos.length} puntos
-            {puntos.length >= 3 && ` · ${areaHa(puntos).toFixed(3)} ha medidas`}
-          </p>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr>
-                <Th>#</Th>
-                <Th>Latitud</Th>
-                <Th>Longitud</Th>
-                <Th className="text-right">Precisión</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {puntos.map((pt, i) => (
-                <tr key={pt.t}>
-                  <Td>{i + 1}</Td>
-                  <Td>{pt.lat.toFixed(6)}</Td>
-                  <Td>{pt.lng.toFixed(6)}</Td>
-                  <Td className="text-right">
-                    {pt.acc != null ? `±${Math.round(pt.acc)} m` : '—'}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <p key={parcela.id}>
+          Polígono levantado en campo (GPS) — {codigoCorto(parcela.codigo_parcela, parcela.nombre)}
+          {parcela.nombre ? ` — ${parcela.nombre}` : ''}: {puntos.length} puntos
+          {puntos.length >= 3 && ` · ${areaHa(puntos).toFixed(3)} ha medidas`}
+        </p>
       ))}
     </div>
   )

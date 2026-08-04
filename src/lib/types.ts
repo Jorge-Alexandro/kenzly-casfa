@@ -202,9 +202,11 @@ export type CampoTipo =
 export interface CampoColumna {
   id: string
   label: string
-  tipo: 'text' | 'number' | 'calc'
+  tipo: 'text' | 'number' | 'calc' | 'enum'
   // para tipo 'calc': fórmula con ids de columnas, p.ej. '10000/(marco_a*marco_b)'
   formula?: string
+  // para tipo 'enum'
+  opciones?: string[]
 }
 
 // Configuración extendida por campo (condicionales, tablas, autollenado).
