@@ -32,9 +32,11 @@ export const HISTORIAL_CAMPOS: HistorialCampo[] = [
   { id: 'producto_pergamino_kg', label: 'Producto: Café Pergamino — Estimado (kg)', tipo: 'number' },
   { id: 'producto_robusta_kg', label: 'Producto: Café Robusta — Estimado (kg)', tipo: 'number' },
   // "Balance de masa": el mismo estimado, pasado a café uva (cereza fresca).
+  // No hay un renglón aparte de "Producción estimada": ya queda dicho en
+  // Producto (kg) y Balance de masa (uva, kg) de arriba — repetirlo era
+  // preguntar lo mismo dos veces.
   { id: 'balance_arabigo_uva_kg', label: 'Balance de masa: Café arábigo uva — Estimado (kg)', tipo: 'number' },
   { id: 'balance_robusta_uva_kg', label: 'Balance de masa: Café Robusta uva — Estimado (kg)', tipo: 'number' },
-  { id: 'produccion_estimada_kg', label: 'Producción estimada (kg)', tipo: 'number' },
   { id: 'fertilizacion_composta_kg', label: 'Fertilización: composta (kg)', tipo: 'number' },
   { id: 'fertilizacion_fecha', label: 'Fertilización: fecha de aplicación', tipo: 'text' },
   { id: 'uso_estiercol', label: 'Uso de estiércol', tipo: 'enum', opciones: ['Sí', 'No'] },
