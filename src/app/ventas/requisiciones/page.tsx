@@ -7,7 +7,7 @@ import { getRequisiciones } from '@/lib/data/ventas'
 import { formatoNum } from '@/lib/ventas/tipos'
 import AppHeader from '@/components/AppHeader'
 import NoMembership from '@/components/geosic/NoMembership'
-import BotonBorrar from '@/components/ventas/BotonBorrar'
+import BotonBorrar from '@/components/BotonBorrar'
 
 export const dynamic = 'force-dynamic'
 

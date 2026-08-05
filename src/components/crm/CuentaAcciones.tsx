@@ -8,6 +8,7 @@ import ContactoFormModal from './ContactoFormModal'
 import OportunidadFormModal, { type ProductoOpcion } from './OportunidadFormModal'
 import ActividadFormModal from './ActividadFormModal'
 import VincularClienteModal from './VincularClienteModal'
+import BotonBorrar from '@/components/BotonBorrar'
 import type { ClienteFiscalOpcion } from './CambiarEtapaModal'
 import { BTN_SECUNDARIO } from './ui'
 import type { CuentaRow, MiembroOrg } from '@/lib/crm/tipos'
@@ -44,6 +45,13 @@ export default function CuentaAcciones({
             Vincular cliente fiscal
           </button>
         )}
+        <BotonBorrar
+          url={`/api/crm/cuentas?id=${cuenta.id}`}
+          descripcion={`la cuenta ${cuenta.nombre}`}
+          advertencia="Se borran también sus contactos, oportunidades y actividades. Si está vinculada a un cliente fiscal, ese cliente y su historial de Ventas NO se tocan."
+          etiqueta="Borrar cuenta"
+          redirigirA="/crm/cuentas"
+        />
       </div>
 
       {modal === 'editar' && (

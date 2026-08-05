@@ -147,3 +147,21 @@ export async function PATCH(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
+
+// Borra la cuenta y, por cascada de FK, sus contactos y oportunidades (con
+// items e historial de etapa). Las actividades ligadas a esas oportunidades
+// se quedan pero sin oportunidad_id (on delete set null). NUNCA toca
+// ventas_cliente/ventas_pedido aunque la cuenta esté vinculada — esa relación
+// es on delete set null, así que Ventas es inmune a un borrado en CRM.
+export async function DELETE(request: Request) {
+  const guard = await requireEditorCRM()
+  if (!guard.ok) return guard.res
+
+  const id = new URL(request.url).searchParams.get('id') ?? ''
+  if (!id) return NextResponse.json({ error: 'Falta id de la cuenta' }, { status: 400 })
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('crm_cuenta').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ ok: true })
+}

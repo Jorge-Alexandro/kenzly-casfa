@@ -111,3 +111,16 @@ export async function PATCH(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
+
+export async function DELETE(request: Request) {
+  const guard = await requireEditorCRM()
+  if (!guard.ok) return guard.res
+
+  const id = new URL(request.url).searchParams.get('id') ?? ''
+  if (!id) return NextResponse.json({ error: 'Falta id de la actividad' }, { status: 400 })
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('crm_actividad').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ ok: true })
+}

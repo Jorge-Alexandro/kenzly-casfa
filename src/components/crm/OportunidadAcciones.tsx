@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import CambiarEtapaModal, { type ClienteFiscalOpcion } from './CambiarEtapaModal'
 import OportunidadFormModal, { type ProductoOpcion } from './OportunidadFormModal'
+import BotonBorrar from '@/components/BotonBorrar'
 import type { MiembroOrg, OportunidadRow } from '@/lib/crm/tipos'
 
 export default function OportunidadAcciones({
@@ -25,9 +26,14 @@ export default function OportunidadAcciones({
 
   return (
     <>
-      <div className="flex shrink-0 gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         <button onClick={() => setModal('etapa')} className={btn}>Mover etapa</button>
         <button onClick={() => setModal('editar')} className={btn}>Editar</button>
+        <BotonBorrar
+          url={`/api/crm/oportunidades?id=${oportunidad.id}`}
+          descripcion={`la oportunidad ${oportunidad.nombre}`}
+          advertencia="Se borran también sus productos de interés y el historial de etapas."
+        />
       </div>
       {modal === 'etapa' && (
         <CambiarEtapaModal

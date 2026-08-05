@@ -1,9 +1,9 @@
 'use client'
 
-// Botón de borrar reutilizable para lo que se captura (ventas, requisiciones…).
-// Pide confirmación explícita nombrando lo que se va a borrar — no un "¿estás
-// seguro?" genérico — porque quien lo usa suele estar corrigiendo una captura
-// equivocada y necesita ver QUÉ está a punto de desaparecer.
+// Botón de borrar reutilizable para lo que se captura (ventas, requisiciones,
+// CRM…). Pide confirmación explícita nombrando lo que se va a borrar — no un
+// "¿estás seguro?" genérico — porque quien lo usa suele estar corrigiendo una
+// captura equivocada y necesita ver QUÉ está a punto de desaparecer.
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -12,6 +12,7 @@ export default function BotonBorrar({
   descripcion,
   advertencia,
   etiqueta = 'Borrar',
+  redirigirA,
 }: {
   /** endpoint DELETE completo, ej. `/api/ventas/pedidos/abc` */
   url: string
@@ -20,6 +21,8 @@ export default function BotonBorrar({
   /** consecuencia extra que el usuario debe saber antes de confirmar */
   advertencia?: string
   etiqueta?: string
+  /** si se borra el registro que la página actual muestra (ej. una ficha), a dónde navegar en vez de sólo refrescar */
+  redirigirA?: string
 }) {
   const router = useRouter()
   const [borrando, setBorrando] = useState(false)
@@ -34,7 +37,8 @@ export default function BotonBorrar({
       const res = await fetch(url, { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? 'No se pudo borrar')
-      router.refresh()
+      if (redirigirA) router.push(redirigirA)
+      else router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al borrar')
     } finally {

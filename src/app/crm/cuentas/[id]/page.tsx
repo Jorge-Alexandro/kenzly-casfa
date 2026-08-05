@@ -26,6 +26,7 @@ import CuentaAcciones from '@/components/crm/CuentaAcciones'
 import OportunidadAcciones from '@/components/crm/OportunidadAcciones'
 import ContactoEditarBoton from '@/components/crm/ContactoEditarBoton'
 import CompletarActividadBoton from '@/components/crm/CompletarActividadBoton'
+import BotonBorrar from '@/components/BotonBorrar'
 import { fechaCorta } from '@/components/crm/ui'
 
 export const dynamic = 'force-dynamic'
@@ -284,8 +285,11 @@ export default async function CuentaFichaPage({ params }: { params: { id: string
                                 : 'Pendiente sin fecha'}
                           </p>
                         </div>
-                        {puedeEditar && !a.completada_at && (
-                          <CompletarActividadBoton actividadId={a.id} asunto={a.asunto} />
+                        {puedeEditar && (
+                          <div className="flex shrink-0 items-center gap-1">
+                            {!a.completada_at && <CompletarActividadBoton actividadId={a.id} asunto={a.asunto} />}
+                            <BotonBorrar url={`/api/crm/actividades?id=${a.id}`} descripcion={`la actividad "${a.asunto}"`} />
+                          </div>
                         )}
                       </li>
                     )

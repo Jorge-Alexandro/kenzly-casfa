@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import CuentaFormModal from './CuentaFormModal'
+import BotonBorrar from '@/components/BotonBorrar'
 import { SELECT, fechaCorta } from './ui'
 import {
   ESTATUS_CUENTA_LABEL,
@@ -119,10 +120,17 @@ export default function CuentasLista({
                       {fechaCorta(c.ultima_actividad)}
                     </td>
                     {puedeEditar && (
-                      <td className="px-2 py-2.5 text-right">
-                        <button onClick={() => setEditando(c)} className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
-                          Editar
-                        </button>
+                      <td className="px-2 py-2.5">
+                        <div className="flex items-center justify-end gap-3">
+                          <button onClick={() => setEditando(c)} className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
+                            Editar
+                          </button>
+                          <BotonBorrar
+                            url={`/api/crm/cuentas?id=${c.id}`}
+                            descripcion={`la cuenta ${c.nombre}`}
+                            advertencia="Se borran también sus contactos, oportunidades y actividades. Si está vinculada a un cliente fiscal, ese cliente y su historial de Ventas NO se tocan."
+                          />
+                        </div>
                       </td>
                     )}
                   </tr>
